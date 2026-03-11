@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(python3:*)",
+      "Bash(npm install:*)",
+      "Bash(npm test:*)",
+      "Bash(curl:*)",
+      "Bash(xxd)",
+      "Bash(npm run:*)",
+      "Bash(wc:*)",
+      "WebSearch",
+      "WebFetch(domain:docs.openclaw.ai)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(ln:*)",
+      "Bash(openclaw plugins:*)",
+      "Bash(openclaw skills:*)",
+      "Bash(do:*)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(node:*)",
+      "Bash(npm list -g openclaw)",
+      "Read(//Users/claw/.openclaw/**)",
+      "Read(//Users/claw/**)",
+      "Bash(openclaw:*)",
+      "Bash(./node_modules/.bin/esbuild:*)",
+      "Bash(pgrep:*)",
+      "Bash(head:*)"
+    ]
+  }
+}

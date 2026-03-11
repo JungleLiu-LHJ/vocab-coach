@@ -1,0 +1,24 @@
+{
+  "id": "vocab-coach",
+  "main": "dist/index.js",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {
+      "activeHoursStart": { "type": "number", "default": 9 },
+      "activeHoursEnd":   { "type": "number", "default": 22 },
+      "dailyTarget":      { "type": "number", "default": 5 },
+      "vocabSource":      { "type": "string", "enum": ["ielts","toefl","cet4","cet6","gre"], "default": "ielts" },
+      "feishuAppId":      { "type": "string" },
+      "feishuAppSecret":  { "type": "string" }
+    }
+  },
+  "uiHints": {
+    "activeHoursStart": { "label": "推送开始时间（小时）" },
+    "activeHoursEnd":   { "label": "推送结束时间（小时）" },
+    "dailyTarget":      { "label": "每日推送单词数" },
+    "vocabSource":      { "label": "词库来源" },
+    "feishuAppId":      { "label": "飞书 App ID" },
+    "feishuAppSecret":  { "label": "飞书 App Secret" }
+  }
+}

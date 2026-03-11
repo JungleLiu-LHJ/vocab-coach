@@ -1,0 +1,24 @@
+{
+  "name": "vocab-coach",
+  "version": "0.1.0",
+  "description": "Adaptive spaced-repetition IELTS vocabulary learning plugin for OpenClaw",
+  "type": "module",
+  "main": "dist/index.js",
+  "files": ["index.ts", "src", "data", "openclaw.plugin.json"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "openclaw": {
+    "extensions": ["./index.ts"]
+  },
+  "keywords": ["openclaw", "vocabulary", "ielts", "srs", "spaced-repetition"],
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "vitest": "^4.0.18"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.2.13"
+  }
+}
