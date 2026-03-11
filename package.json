@@ -1,10 +1,25 @@
 {
-  "name": "vocab-coach",
-  "version": "0.1.0",
-  "description": "Adaptive spaced-repetition IELTS vocabulary learning plugin for OpenClaw",
+  "name": "@openclaw/vocab-coach",
+  "version": "0.2.0",
+  "description": "Adaptive spaced-repetition vocabulary plugin for OpenClaw — pushes IELTS/TOEFL/CET words to Feishu, Telegram, WhatsApp and more with LLM-enriched cards",
+  "author": "JungleLiu",
+  "license": "MIT",
+  "homepage": "https://github.com/JungleLiu-LHJ/openclaw-vocab-coach",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JungleLiu-LHJ/openclaw-vocab-coach.git"
+  },
+  "bugs": {
+    "url": "https://github.com/JungleLiu-LHJ/openclaw-vocab-coach/issues"
+  },
   "type": "module",
   "main": "dist/index.js",
-  "files": ["index.ts", "src", "data", "openclaw.plugin.json"],
+  "files": [
+    "index.ts",
+    "src",
+    "data",
+    "openclaw.plugin.json"
+  ],
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
@@ -13,7 +28,21 @@
   "openclaw": {
     "extensions": ["./index.ts"]
   },
-  "keywords": ["openclaw", "vocabulary", "ielts", "srs", "spaced-repetition"],
+  "keywords": [
+    "openclaw",
+    "openclaw-plugin",
+    "vocabulary",
+    "ielts",
+    "toefl",
+    "cet4",
+    "cet6",
+    "gre",
+    "srs",
+    "spaced-repetition",
+    "feishu",
+    "lark",
+    "language-learning"
+  ],
   "devDependencies": {
     "typescript": "^5.3.0",
     "vitest": "^4.0.18"
