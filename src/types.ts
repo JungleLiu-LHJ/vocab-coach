@@ -55,10 +55,14 @@ export interface ActionPayload {
 
 // ── 生成内容 ──────────────────────────────────────────────
 export interface GeneratedContent {
-  englishDef: string;   // 英文释义
-  examples: string[];   // 3 个例句（最后一句结合时事）
-  related: string[];    // 关联词及中文注释，如 ["vector (矢量)", ...]
-  mnemonic: string;     // 记忆技巧
+  nativeDef: string;      // 母语释义（LLM 生成）
+  englishDef: string;     // 英文释义（LLM 生成）
+  phonetic: string;       // 音标，如 /ˈʌltɪmətəm/
+  partOfSpeech: string;   // 词性：n. / v. / adj. / adv. 等
+  forms: string[];        // 词形变化，如 ["ultimatums (pl.)", "ultimate (adj.)"]
+  examples: string[];     // 3 个例句
+  related: string[];      // 关联词及母语注释，如 ["vector (矢量)", ...]
+  mnemonic: string;       // 记忆技巧
 }
 
 // ── 渠道路由 — 按用户持久化 ───────────────────────────────

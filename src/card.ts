@@ -7,7 +7,7 @@ interface CardStrings {
   review: string;
   examples: string;
   related: string;
-  currentEvents: string;
+  forms: string;
   recallPrompt: string;
   revealDef: string;
   btnKnow: string;
@@ -28,7 +28,7 @@ const STRINGS: Record<string, CardStrings> = {
     review: '📚 复习',
     examples: '**例句**',
     related: '**关联词**',
-    currentEvents: '🌐 时事',
+    forms: '**相关形态**',
     recallPrompt: '你还记得这个词吗？',
     revealDef: '显示释义',
     btnKnow: '认识 ✓',
@@ -47,7 +47,7 @@ const STRINGS: Record<string, CardStrings> = {
     review: '📚 Review',
     examples: '**Examples**',
     related: '**Related**',
-    currentEvents: '🌐 Current events',
+    forms: '**Word Forms**',
     recallPrompt: 'Can you recall this word?',
     revealDef: 'Show definition',
     btnKnow: 'Know ✓',
@@ -66,7 +66,7 @@ const STRINGS: Record<string, CardStrings> = {
     review: '📚 復習',
     examples: '**例文**',
     related: '**関連語**',
-    currentEvents: '🌐 時事',
+    forms: '**関連形態**',
     recallPrompt: 'この単語を覚えていますか？',
     revealDef: '意味を表示',
     btnKnow: '知っている ✓',
@@ -85,7 +85,7 @@ const STRINGS: Record<string, CardStrings> = {
     review: '📚 복습',
     examples: '**예문**',
     related: '**관련 단어**',
-    currentEvents: '🌐 시사',
+    forms: '**관련 형태**',
     recallPrompt: '이 단어를 기억하세요?',
     revealDef: '뜻 보기',
     btnKnow: '알아요 ✓',
@@ -130,25 +130,33 @@ export function buildFeishuNewWordCard(
   lang: string = 'zh',
 ): Record<string, unknown> {
   const s = t(lang);
-  const phonetic = word.phonetic ? ` ${word.phonetic}` : '';
+  // 优先用 LLM 生成的音标，其次用数据集原有音标
+  const phonetic = (content.phonetic || word.phonetic) ? ` ${content.phonetic || word.phonetic}` : '';
 
+  // 词性放在词形旁边：ultimatum  n.
+  const posStr = content.partOfSpeech ? `  *${content.partOfSpeech}*` : '';
   const lines: string[] = [
-    `**${word.w}**${phonetic}`,
+    `**${word.w}**${phonetic}${posStr}`,
     `${word.lv} · ${word.tag.toUpperCase()}`,
     '',
   ];
 
-  // 母语释义 + 英文释义
-  if (word.def) lines.push(`**${word.def}**`);
-  if (content.englishDef) lines.push(`🇬🇧 ${content.englishDef}`);
+  // 母语释义（LLM 生成，兜底用数据集原始释义）
+  const def = content.nativeDef || word.def;
+  if (def) lines.push(`**${def}**`);
+
+  // 英文释义（LLM 生成）
+  if (content.englishDef) lines.push(`*${content.englishDef}*`);
 
   // 例句
   if (content.examples.length > 0) {
     lines.push('', s.examples);
-    content.examples.forEach((ex, i) => {
-      const label = i === content.examples.length - 1 ? s.currentEvents : `${i + 1}.`;
-      lines.push(`${label} ${ex}`);
-    });
+    content.examples.forEach((ex, i) => lines.push(`${i + 1}. ${ex}`));
+  }
+
+  // 词形变化
+  if (content.forms.length > 0) {
+    lines.push('', `${s.forms} ｜ ` + content.forms.join(' · '));
   }
 
   // 关联词
@@ -225,24 +233,36 @@ export function buildNewWordCard(word: VocabWord, content: GeneratedContent, lan
   const s = t(lang);
   const parts: string[] = [s.newWord, ''];
 
-  // 单词标题行
-  const phonetic = word.phonetic ? ` ${word.phonetic}` : '';
-  parts.push(`**${word.w}**${phonetic}  ·  ${word.lv} · ${word.tag.toUpperCase()}`);
+  // 单词标题行（含词性）
+  // 优先用 LLM 生成的音标，其次用数据集原有音标
+  const phonetic = (content.phonetic || word.phonetic) ? ` ${content.phonetic || word.phonetic}` : '';
+  const posStr = content.partOfSpeech ? `  *${content.partOfSpeech}*` : '';
+  parts.push(`**${word.w}**${phonetic}${posStr}  ·  ${word.lv} · ${word.tag.toUpperCase()}`);
   parts.push('');
 
-  // 母语释义
-  if (word.def) {
-    parts.push(`**${word.def}**`);
+  // 母语释义（LLM 生成，兜底用数据集原始释义）
+  const def = content.nativeDef || word.def;
+  if (def) {
+    parts.push(`**${def}**`);
+  }
+
+  // 英文释义（LLM 生成）
+  if (content.englishDef) {
+    parts.push(`*${content.englishDef}*`);
+  }
+
+  if (def || content.englishDef) parts.push('');
+
+  // 例句（3句，统一编号）
+  if (content.examples.length > 0) {
+    parts.push(s.examples);
+    content.examples.forEach((ex, i) => parts.push(`${i + 1}. ${ex}`));
     parts.push('');
   }
 
-  // 例句（3句）
-  if (content.examples.length > 0) {
-    parts.push(s.examples);
-    content.examples.forEach((ex, i) => {
-      const label = i === content.examples.length - 1 ? s.currentEvents : `${i + 1}.`;
-      parts.push(`${label} ${ex}`);
-    });
+  // 词形变化
+  if (content.forms.length > 0) {
+    parts.push(`${s.forms} ｜ ` + content.forms.join(' · '));
     parts.push('');
   }
 
