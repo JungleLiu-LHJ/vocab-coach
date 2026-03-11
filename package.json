@@ -1,6 +1,6 @@
 {
   "name": "@jungle666/openclaw-vocab-coach",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Adaptive spaced-repetition vocabulary plugin for OpenClaw — pushes IELTS/TOEFL/CET words to Feishu, Telegram, WhatsApp and more with LLM-enriched cards",
   "author": "JungleLiu",
   "license": "MIT",
@@ -21,6 +21,7 @@
     "openclaw.plugin.json"
   ],
   "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --sourcemap",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
