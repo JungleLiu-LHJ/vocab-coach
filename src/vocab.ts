@@ -1,11 +1,11 @@
 import type { OpenClawContext, UserProgress, VocabWord } from './types.js';
-// Bundled IELTS vocabulary (11,287 words, B2–C1, tagged 'ielts')
-// esbuild will inline this JSON at build time — no network call needed on first run.
+// 内置 IELTS 词汇表（11,287 词，B2–C1，标签 'ielts'）
+// esbuild 在构建时会将此 JSON 内联，首次运行无需网络请求
 import BUNDLED_VOCAB from '../data/ielts-vocab.json';
 
 const VOCAB_CACHE_KEY = 'vocab_cache';
 
-// CEFR level ordering for ceiling comparisons
+// CEFR 等级排序，用于上限比较
 const CEFR_ORDER: Record<string, number> = {
   A1: 1,
   A2: 2,
@@ -15,7 +15,7 @@ const CEFR_ORDER: Record<string, number> = {
   C2: 6,
 };
 
-// Map skill level (1–10) to a CEFR ceiling
+// 将技能等级（1–10）映射到 CEFR 上限
 function cefrCeiling(skillLevel: number): number {
   if (skillLevel <= 2) return CEFR_ORDER['A1'];
   if (skillLevel <= 4) return CEFR_ORDER['A2'];
@@ -30,14 +30,14 @@ let cachedVocab: VocabWord[] | null = null;
 export async function ensureCached(ctx: OpenClawContext): Promise<VocabWord[]> {
   if (cachedVocab) return cachedVocab;
 
-  // Check persistent storage first (allows runtime override / updates)
+  // 优先检查持久化存储（支持运行时覆盖/更新）
   const stored = await ctx.storage.get(VOCAB_CACHE_KEY);
   if (stored) {
     cachedVocab = JSON.parse(stored) as VocabWord[];
     return cachedVocab;
   }
 
-  // Fall back to the bundled IELTS vocabulary (inlined at build time by esbuild)
+  // 回退到 esbuild 构建时内联的 IELTS 词汇表
   cachedVocab = BUNDLED_VOCAB as VocabWord[];
   return cachedVocab;
 }
@@ -51,7 +51,7 @@ export function selectNextWord(
   const ceiling = cefrCeiling(progress.level);
   const { vocabTags } = progress.config;
 
-  // Filter eligible words: not mastered, within CEFR ceiling, matching tags
+  // 筛选候选词：未掌握、在 CEFR 上限内、匹配标签
   const eligible = vocab.filter((word) => {
     if (masteredSet.has(word.id)) return false;
     if (CEFR_ORDER[word.lv] !== undefined && CEFR_ORDER[word.lv] > ceiling) return false;
@@ -61,25 +61,25 @@ export function selectNextWord(
 
   if (eligible.length === 0) return null;
 
-  // Prefer due reviews (earliest next timestamp that is overdue)
+  // 优先推送到期复习词（最早逾期的）
   const dueReviews = eligible.filter(
     (word) => word.id in progress.weights && progress.weights[word.id].next <= now,
   );
 
   if (dueReviews.length > 0) {
-    // Return the most overdue word
+    // 返回最长逾期的词
     return dueReviews.reduce((earliest, word) =>
       progress.weights[word.id].next < progress.weights[earliest.id].next ? word : earliest,
     );
   }
 
-  // No due reviews → pick a new word not yet encountered (random to avoid always starting at 'a')
+  // 无到期复习 → 随机选一个尚未接触的新词（避免总从字母 a 开始）
   const newWords = eligible.filter((word) => !(word.id in progress.weights));
   if (newWords.length > 0) {
     return newWords[Math.floor(Math.random() * newWords.length)];
   }
 
-  // All eligible words are in progress but not yet due → pick next-due
+  // 所有候选词均在进行中但尚未到期 → 选最快到期的
   const inProgress = eligible.filter((word) => word.id in progress.weights);
   if (inProgress.length > 0) {
     return inProgress.reduce((earliest, word) =>

@@ -1,6 +1,113 @@
 import type { VocabWord, GeneratedContent, ActionPayload, FeedbackRating } from './types.js';
 
-// ── Feishu Interactive Card builders ──────────────────────────────────────────
+// ── 多语言 UI 字符串 ───────────────────────────────────────────────────────────
+
+interface CardStrings {
+  newWord: string;
+  review: string;
+  examples: string;
+  related: string;
+  currentEvents: string;
+  recallPrompt: string;
+  revealDef: string;
+  btnKnow: string;
+  btnFuzzy: string;
+  btnForgot: string;
+  btnMaster: string;
+  btnRemember: string;
+  ackKnow: string;
+  ackFuzzy: string;
+  ackForgot: string;
+  ackMaster: string;
+  allDone: string;
+}
+
+const STRINGS: Record<string, CardStrings> = {
+  zh: {
+    newWord: '📚 新单词',
+    review: '📚 复习',
+    examples: '**例句**',
+    related: '**关联词**',
+    currentEvents: '🌐 时事',
+    recallPrompt: '你还记得这个词吗？',
+    revealDef: '显示释义',
+    btnKnow: '认识 ✓',
+    btnFuzzy: '模糊 ~',
+    btnForgot: '不知道 ✗',
+    btnMaster: '完全认识 ⭐',
+    btnRemember: '记得 ✓',
+    ackKnow: '✅ 好的，几天后再复习！',
+    ackFuzzy: '🔄 收到，稍后再来一遍。',
+    ackForgot: '📖 没关系，马上再推一次！',
+    ackMaster: '⭐ 已标记为完全掌握，此单词不再推送！',
+    allDone: '🎉 今日词汇已全部掌握！',
+  },
+  en: {
+    newWord: '📚 New Word',
+    review: '📚 Review',
+    examples: '**Examples**',
+    related: '**Related**',
+    currentEvents: '🌐 Current events',
+    recallPrompt: 'Can you recall this word?',
+    revealDef: 'Show definition',
+    btnKnow: 'Know ✓',
+    btnFuzzy: 'Vague ~',
+    btnForgot: "Don't know ✗",
+    btnMaster: 'Mastered ⭐',
+    btnRemember: 'Remember ✓',
+    ackKnow: '✅ Got it! Reviewing again in a few days.',
+    ackFuzzy: "🔄 OK, we'll revisit this soon.",
+    ackForgot: "📖 No worries! We'll push this again shortly.",
+    ackMaster: '⭐ Marked as mastered — this word will no longer be pushed!',
+    allDone: "🎉 All words for today are mastered!",
+  },
+  ja: {
+    newWord: '📚 新しい単語',
+    review: '📚 復習',
+    examples: '**例文**',
+    related: '**関連語**',
+    currentEvents: '🌐 時事',
+    recallPrompt: 'この単語を覚えていますか？',
+    revealDef: '意味を表示',
+    btnKnow: '知っている ✓',
+    btnFuzzy: 'あいまい ~',
+    btnForgot: 'わからない ✗',
+    btnMaster: '完全に覚えた ⭐',
+    btnRemember: '覚えている ✓',
+    ackKnow: '✅ 了解！数日後に復習します。',
+    ackFuzzy: '🔄 わかりました。もうすぐまた復習します。',
+    ackForgot: '📖 大丈夫！すぐにもう一度送ります。',
+    ackMaster: '⭐ 完全習得としてマーク済み。この単語は今後送りません！',
+    allDone: '🎉 今日の単語はすべて習得済みです！',
+  },
+  ko: {
+    newWord: '📚 새 단어',
+    review: '📚 복습',
+    examples: '**예문**',
+    related: '**관련 단어**',
+    currentEvents: '🌐 시사',
+    recallPrompt: '이 단어를 기억하세요?',
+    revealDef: '뜻 보기',
+    btnKnow: '알아요 ✓',
+    btnFuzzy: '흐릿해요 ~',
+    btnForgot: '몰라요 ✗',
+    btnMaster: '완전히 알아요 ⭐',
+    btnRemember: '기억해요 ✓',
+    ackKnow: '✅ 알겠어요! 며칠 후 다시 복습합니다.',
+    ackFuzzy: '🔄 알겠어요. 곧 다시 보내드릴게요.',
+    ackForgot: '📖 괜찮아요! 곧 다시 보내드릴게요.',
+    ackMaster: '⭐ 완전 습득으로 표시됨. 이 단어는 더 이상 전송되지 않습니다!',
+    allDone: '🎉 오늘의 단어를 모두 습득했습니다!',
+  },
+};
+
+// 未知语言回退到英文
+function t(lang: string): CardStrings {
+  const code = lang.split('-')[0];
+  return STRINGS[code] ?? STRINGS['en'];
+}
+
+// ── 飞书互动卡片构建器 ────────────────────────────────────────────────────────
 
 function feishuButton(
   label: string,
@@ -12,7 +119,7 @@ function feishuButton(
     tag: 'button',
     text: { tag: 'plain_text', content: label },
     type,
-    // Feishu requires flat string values; wordId stored as string, parsed back in parseAction
+    // 飞书要求值为字符串；wordId 存为字符串，在 parseAction 中解析回来
     value: { wordId: String(wordId), rating },
   };
 }
@@ -20,7 +127,9 @@ function feishuButton(
 export function buildFeishuNewWordCard(
   word: VocabWord,
   content: GeneratedContent,
+  lang: string = 'zh',
 ): Record<string, unknown> {
+  const s = t(lang);
   const phonetic = word.phonetic ? ` ${word.phonetic}` : '';
 
   const lines: string[] = [
@@ -29,25 +138,25 @@ export function buildFeishuNewWordCard(
     '',
   ];
 
-  // Chinese + English definitions
-  if (word.def) lines.push(`🇨🇳 **${word.def}**`);
+  // 母语释义 + 英文释义
+  if (word.def) lines.push(`**${word.def}**`);
   if (content.englishDef) lines.push(`🇬🇧 ${content.englishDef}`);
 
-  // Example sentences
+  // 例句
   if (content.examples.length > 0) {
-    lines.push('', '**例句**');
+    lines.push('', s.examples);
     content.examples.forEach((ex, i) => {
-      const label = i === content.examples.length - 1 ? '🌐 时事' : `${i + 1}.`;
+      const label = i === content.examples.length - 1 ? s.currentEvents : `${i + 1}.`;
       lines.push(`${label} ${ex}`);
     });
   }
 
-  // Related words
+  // 关联词
   if (content.related.length > 0) {
-    lines.push('', `**关联词** ｜ ` + content.related.join(' · '));
+    lines.push('', `${s.related} ｜ ` + content.related.join(' · '));
   }
 
-  // Mnemonic
+  // 记忆技巧
   if (content.mnemonic) {
     lines.push('', `💡 ${content.mnemonic}`);
   }
@@ -55,7 +164,7 @@ export function buildFeishuNewWordCard(
   return {
     config: { wide_screen_mode: true },
     header: {
-      title: { tag: 'plain_text', content: '📚 新单词' },
+      title: { tag: 'plain_text', content: s.newWord },
       template: 'blue',
     },
     elements: [
@@ -64,10 +173,10 @@ export function buildFeishuNewWordCard(
       {
         tag: 'action',
         actions: [
-          feishuButton('认识 ✓', word.id, 'know', 'primary'),
-          feishuButton('模糊 ~', word.id, 'fuzzy', 'default'),
-          feishuButton('忘记 ✗', word.id, 'forgot', 'danger'),
-          feishuButton('完全认识 ⭐', word.id, 'master', 'default'),
+          feishuButton(s.btnKnow, word.id, 'know', 'primary'),
+          feishuButton(s.btnFuzzy, word.id, 'fuzzy', 'default'),
+          feishuButton(s.btnForgot, word.id, 'forgot', 'danger'),
+          feishuButton(s.btnMaster, word.id, 'master', 'default'),
         ],
       },
     ],
@@ -77,7 +186,9 @@ export function buildFeishuNewWordCard(
 export function buildFeishuReviewCard(
   word: VocabWord,
   reviewCount: number,
+  lang: string = 'zh',
 ): Record<string, unknown> {
+  const s = t(lang);
   return {
     config: { wide_screen_mode: true },
     elements: [
@@ -85,15 +196,15 @@ export function buildFeishuReviewCard(
         tag: 'div',
         text: {
           tag: 'lark_md',
-          content: `📚 **复习** (第 ${reviewCount} 次)\n\n**${word.w}**\n\n你还记得这个词吗？`,
+          content: `${s.review} (${reviewCount})\n\n**${word.w}**\n\n${s.recallPrompt}`,
         },
       },
       {
         tag: 'action',
         actions: [
-          feishuButton('记得 ✓', word.id, 'fuzzy', 'primary'),
-          feishuButton('忘了 ✗', word.id, 'forgot', 'danger'),
-          feishuButton('完全认识 ⭐', word.id, 'master', 'default'),
+          feishuButton(s.btnRemember, word.id, 'fuzzy', 'primary'),
+          feishuButton(s.btnForgot, word.id, 'forgot', 'danger'),
+          feishuButton(s.btnMaster, word.id, 'master', 'default'),
         ],
       },
     ],
@@ -102,66 +213,72 @@ export function buildFeishuReviewCard(
 
 function actionButton(label: string, wordId: number, rating: FeedbackRating): string {
   const payload: ActionPayload = { wordId, rating };
-  // OpenClaw button syntax: [Label](action:data)
+  // OpenClaw 按钮语法：[标签](action:数据)
   return `[${label}](action:${JSON.stringify(payload)})`;
 }
 
-function revealButton(wordId: number): string {
-  return `[显示释义](action:${JSON.stringify({ wordId, rating: 'fuzzy' })})`;
+function revealButton(label: string, wordId: number): string {
+  return `[${label}](action:${JSON.stringify({ wordId, rating: 'fuzzy' })})`;
 }
 
-export function buildNewWordCard(word: VocabWord, content: GeneratedContent): string {
-  const parts: string[] = ['📚 New Word', ''];
+export function buildNewWordCard(word: VocabWord, content: GeneratedContent, lang: string = 'zh'): string {
+  const s = t(lang);
+  const parts: string[] = [s.newWord, ''];
 
-  // Word header
+  // 单词标题行
   const phonetic = word.phonetic ? ` ${word.phonetic}` : '';
   parts.push(`**${word.w}**${phonetic}  ·  ${word.lv} · ${word.tag.toUpperCase()}`);
   parts.push('');
 
-  // Definition
+  // 母语释义
   if (word.def) {
-    parts.push(word.def);
+    parts.push(`**${word.def}**`);
     parts.push('');
   }
 
-  // Example sentence
-  if (content.example) {
-    parts.push(`> "${content.example}"`);
+  // 例句（3句）
+  if (content.examples.length > 0) {
+    parts.push(s.examples);
+    content.examples.forEach((ex, i) => {
+      const label = i === content.examples.length - 1 ? s.currentEvents : `${i + 1}.`;
+      parts.push(`${label} ${ex}`);
+    });
     parts.push('');
   }
 
-  // Mnemonic
+  // 记忆技巧
   if (content.mnemonic) {
     parts.push(`💡 ${content.mnemonic}`);
     parts.push('');
   }
 
-  // Feedback buttons
+  // 反馈按钮
   parts.push(
     [
-      actionButton('认识 ✓', word.id, 'know'),
-      actionButton('模糊 ~', word.id, 'fuzzy'),
-      actionButton('忘记 ✗', word.id, 'forgot'),
-      actionButton('完全认识 ⭐', word.id, 'master'),
+      actionButton(s.btnKnow, word.id, 'know'),
+      actionButton(s.btnFuzzy, word.id, 'fuzzy'),
+      actionButton(s.btnForgot, word.id, 'forgot'),
+      actionButton(s.btnMaster, word.id, 'master'),
     ].join('  '),
   );
 
   return parts.join('\n');
 }
 
-export function buildReviewCard(word: VocabWord, reviewCount: number): string {
-  const parts: string[] = [`📚 Review  (×${reviewCount} seen)`, ''];
+export function buildReviewCard(word: VocabWord, reviewCount: number, lang: string = 'zh'): string {
+  const s = t(lang);
+  const parts: string[] = [`${s.review}  (×${reviewCount})`, ''];
 
   parts.push(`**${word.w}**`);
   parts.push('');
-  parts.push('Can you recall this word?');
+  parts.push(s.recallPrompt);
   parts.push('');
 
   parts.push(
     [
-      revealButton(word.id),
-      actionButton('忘记 ✗', word.id, 'forgot'),
-      actionButton('完全认识 ⭐', word.id, 'master'),
+      revealButton(s.revealDef, word.id),
+      actionButton(s.btnForgot, word.id, 'forgot'),
+      actionButton(s.btnMaster, word.id, 'master'),
     ].join('  '),
   );
 
@@ -173,18 +290,24 @@ export function build(
   content: GeneratedContent,
   isReview: boolean,
   reviewCount: number = 0,
+  lang: string = 'zh',
 ): string {
   return isReview
-    ? buildReviewCard(word, reviewCount)
-    : buildNewWordCard(word, content);
+    ? buildReviewCard(word, reviewCount, lang)
+    : buildNewWordCard(word, content, lang);
 }
 
-export function buildAckMessage(rating: FeedbackRating): string {
+export function buildAckMessage(rating: FeedbackRating, lang: string = 'zh'): string {
+  const s = t(lang);
   const messages: Record<FeedbackRating, string> = {
-    know: '✅ Great! Scheduling next review in a few days.',
-    fuzzy: '🔄 Got it. We\'ll review this again soon.',
-    forgot: '📖 No worries! We\'ll revisit this word shortly.',
-    master: '⭐ 已标记为完全掌握，此单词不再推送！',
+    know: s.ackKnow,
+    fuzzy: s.ackFuzzy,
+    forgot: s.ackForgot,
+    master: s.ackMaster,
   };
   return messages[rating];
+}
+
+export function allDoneMessage(lang: string = 'zh'): string {
+  return t(lang).allDone;
 }

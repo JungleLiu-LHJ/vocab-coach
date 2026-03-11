@@ -1,6 +1,6 @@
 import type { FSRSState, FeedbackRating } from './types.js';
 
-export const MASTERY_THRESHOLD = 21; // days of stability → retire word
+export const MASTERY_THRESHOLD = 21; // 稳定性达到 21 天 → 退役该词
 
 const MULTIPLIERS: Record<FeedbackRating, number> = {
   know: 2.5,

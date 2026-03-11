@@ -1,40 +1,42 @@
-// ── Vocabulary ────────────────────────────────────────────
+// ── 词汇 ─────────────────────────────────────────────────
 export interface VocabWord {
   id: number;
-  w: string;        // word
-  lv: string;       // CEFR level: A1–C2
-  tag: string;      // e.g. "ielts", "cet4"
+  w: string;        // 单词
+  lv: string;       // CEFR 等级：A1–C2
+  tag: string;      // 如 "ielts"、"cet4"
   def?: string;
   phonetic?: string;
 }
 
-// ── FSRS state per word ───────────────────────────────────
+// ── 每个单词的 FSRS 状态 ──────────────────────────────────
 export interface FSRSState {
-  s: number;        // stability: days until 90% retention
-  d: number;        // difficulty: 1–10
-  next: number;     // next review timestamp (ms since epoch)
+  s: number;        // 稳定性：达到 90% 记忆保留的天数
+  d: number;        // 难度：1–10
+  next: number;     // 下次复习时间戳（毫秒）
   reviews: number;
   lapses: number;
 }
 
-// ── Persisted user state ──────────────────────────────────
+// ── 用户持久化状态 ────────────────────────────────────────
 export interface UserProgress {
-  level: number;                         // 1–10 skill level
-  mastered: number[];                    // word IDs to never show again
-  weights: Record<number, FSRSState>;    // FSRS state keyed by word ID
+  level: number;                         // 技能等级 1–10
+  mastered: number[];                    // 已掌握、不再推送的词 ID
+  weights: Record<number, FSRSState>;    // 以词 ID 为键的 FSRS 状态
   lastPushTime: number;
   config: UserConfig;
 }
 
 export interface UserConfig {
   activeHours: [number, number];  // [9, 22]
-  timezone: string;               // auto-detected via Intl
-  dailyTarget: number;            // default 5
-  vocabTags: string[];            // ["ielts"] etc.
-  // Plugin-level feishu credentials
+  timezone: string;               // 通过 Intl 自动检测
+  dailyTarget: number;            // 默认 5
+  vocabTags: string[];            // 如 ["ielts"]
+  /** 用户母语（BCP 47），控制卡片界面语言和 LLM 释义语言，默认 'zh' */
+  nativeLang: string;
+  // 插件级飞书凭证
   feishuAppId?: string;
   feishuAppSecret?: string;
-  // OpenClaw global channels config
+  // OpenClaw 全局渠道配置
   channels?: {
     feishu?: {
       appId?: string;
@@ -43,7 +45,7 @@ export interface UserConfig {
   };
 }
 
-// ── Action payloads ───────────────────────────────────────
+// ── Action payload ────────────────────────────────────────
 export type FeedbackRating = 'know' | 'fuzzy' | 'forgot' | 'master';
 
 export interface ActionPayload {
@@ -51,28 +53,28 @@ export interface ActionPayload {
   rating: FeedbackRating;
 }
 
-// ── Generated content ─────────────────────────────────────
+// ── 生成内容 ──────────────────────────────────────────────
 export interface GeneratedContent {
-  englishDef: string;   // English definition/explanation
-  examples: string[];   // 3 example sentences (last one tied to current events)
-  related: string[];    // Related words with brief Chinese gloss, e.g. ["vector (矢量)", ...]
-  mnemonic: string;     // Memory trick
+  englishDef: string;   // 英文释义
+  examples: string[];   // 3 个例句（最后一句结合时事）
+  related: string[];    // 关联词及中文注释，如 ["vector (矢量)", ...]
+  mnemonic: string;     // 记忆技巧
 }
 
-// ── Channel routing — persisted per user ──────────────────
-// Stores where to reach a user for proactive pushes.
+// ── 渠道路由 — 按用户持久化 ───────────────────────────────
+// 存储主动推送时联系用户的方式
 export interface UserRoute {
-  /** OpenClaw channel id, e.g. "telegram", "whatsapp", "discord" */
+  /** OpenClaw 渠道 ID，如 "telegram"、"whatsapp"、"discord" */
   channelId: string;
-  /** Send target: conversationId when available, else event.from */
+  /** 发送目标：有 conversationId 时用之，否则用 event.from */
   to: string;
-  /** event.from — canonical user identifier within the channel */
+  /** event.from — 渠道内的用户标准标识符 */
   from: string;
-  /** Optional account id for multi-account channel setups */
+  /** 多账号渠道时的可选账号 ID */
   accountId?: string;
 }
 
-// ── OpenClaw context (minimal interface for type safety) ──
+// ── OpenClaw 上下文（最小类型安全接口）────────────────────
 export interface OpenClawContext {
   storage: {
     get(key: string): Promise<string | null>;
@@ -93,10 +95,12 @@ export interface OpenClawContext {
     activeHoursEnd?: number;
     dailyTarget?: number;
     vocabSource?: string;
-    /** Plugin-level feishu credentials (set via openclaw plugins config) */
+    /** 用户母语，如 'zh'、'en'、'ja' */
+    nativeLang?: string;
+    /** 插件级飞书凭证（通过 openclaw plugins config 设置） */
     feishuAppId?: string;
     feishuAppSecret?: string;
-    /** OpenClaw global channels config — runtime may inject this */
+    /** OpenClaw 全局渠道配置 — 运行时可注入 */
     channels?: {
       feishu?: {
         appId?: string;
@@ -106,11 +110,10 @@ export interface OpenClawContext {
   };
 }
 
-// ── OpenClaw Plugin Register API ──────────────────────────
-// The real OpenClaw runtime calls register(api) on plugin load.
-// `api` provides the same capabilities as OpenClawContext but
-// at the plugin level (not per-user). User-scoped context is
-// passed per-event in hook handlers.
+// ── OpenClaw 插件注册 API ─────────────────────────────────
+// OpenClaw 运行时在插件加载时调用一次 register(api)。
+// `api` 提供与 OpenClawContext 相同的能力，但作用于插件级别（非单用户）。
+// 用户级上下文在每个事件的钩子处理函数中传入。
 export interface OpenClawPluginAPI {
   storage: OpenClawContext['storage'];
   gateway: OpenClawContext['gateway'];
@@ -128,13 +131,13 @@ export type OpenClawHookEvent =
 
 export interface OpenClawHookPayload {
   type: OpenClawHookEvent;
-  /** Sender/user ID from the messaging platform */
+  /** 消息平台中的发送者/用户 ID */
   senderId?: string;
-  /** Raw message text (for message:received) */
+  /** 原始消息文本（用于 message:received） */
   text?: string;
-  /** Arbitrary action data (for inline button callbacks) */
+  /** 内联按钮回调的任意 action 数据 */
   action?: string;
-  /** IANA timezone of the sender, if detected by gateway */
+  /** 网关检测到的发送者 IANA 时区 */
   timezone?: string;
   timestamp: number;
 }
