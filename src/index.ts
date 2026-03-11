@@ -13,12 +13,12 @@ import type {
   UserConfig,
 } from './types.js';
 
-// ── Timer registry (per userId) ───────────────────────────────────────────────
+// ── 计时器注册表（按 userId 区分）────────────────────────────────────────────
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── 工具函数 ──────────────────────────────────────────────────────────────────
 
-/** Build an OpenClawContext-compatible object from the plugin-level API + sender info. */
+/** 从插件级 API 和发送者信息构建兼容 OpenClawContext 的对象 */
 function makeCtx(api: OpenClawPluginAPI, userId: string, timezone?: string): OpenClawContext {
   return {
     storage: api.storage,
@@ -44,7 +44,7 @@ function scheduleNextForUser(ctx: OpenClawContext, config: UserConfig): void {
   timers.set(userId, timer);
 }
 
-/** Parse the action JSON string embedded in a button tap message. */
+/** 解析按钮点击消息中内嵌的 action JSON 字符串 */
 function parseAction(raw: string): ActionPayload | null {
   try {
     const parsed = JSON.parse(raw) as { wordId?: unknown; rating?: unknown };
@@ -57,12 +57,12 @@ function parseAction(raw: string): ActionPayload | null {
       return { wordId: parsed.wordId, rating: parsed.rating as FeedbackRating };
     }
   } catch {
-    // not an action payload — ignore
+    // 不是 action payload，忽略
   }
   return null;
 }
 
-// ── Core logic ────────────────────────────────────────────────────────────────
+// ── 核心逻辑 ──────────────────────────────────────────────────────────────────
 
 async function handleLoad(ctx: OpenClawContext): Promise<void> {
   await vocab.ensureCached(ctx);
@@ -82,14 +82,14 @@ async function handleAction(ctx: OpenClawContext, payload: ActionPayload): Promi
     progress.mastered.push(payload.wordId);
   }
 
-  // Auto-level: bump every 10 mastered words
+  // 自动升级：每掌握 10 个词升一级
   const newLevel = Math.min(10, 1 + Math.floor(progress.mastered.length / 10));
   if (newLevel > progress.level) {
     progress.level = newLevel;
   }
 
   await storage.saveProgress(ctx, userId, progress);
-  await ctx.gateway.send(card.buildAckMessage(payload.rating));
+  await ctx.gateway.send(card.buildAckMessage(payload.rating, progress.config.nativeLang));
   scheduleNextForUser(ctx, progress.config);
 }
 
@@ -99,44 +99,46 @@ async function triggerPush(ctx: OpenClawContext): Promise<void> {
   const vocabList = await vocab.ensureCached(ctx);
 
   const word = vocab.selectNextWord(progress, vocabList);
+  const lang = progress.config.nativeLang ?? 'zh';
+
   if (!word) {
-    await ctx.gateway.send('🎉 All words mastered for today!');
+    await ctx.gateway.send(card.allDoneMessage(lang));
     scheduleNextForUser(ctx, progress.config);
     return;
   }
 
   const isReview = word.id in progress.weights;
   const reviewCount = progress.weights[word.id]?.reviews ?? 0;
-  const content = await generator.generateContent(ctx, word, progress.level);
+  const content = await generator.generateContent(ctx, word, progress.level, lang);
 
-  await ctx.gateway.send(card.build(word, content, isReview, reviewCount));
+  await ctx.gateway.send(card.build(word, content, isReview, reviewCount, lang));
 
   progress.lastPushTime = Date.now();
   await storage.saveProgress(ctx, userId, progress);
   scheduleNextForUser(ctx, progress.config);
 }
 
-// ── Real OpenClaw plugin entry point ──────────────────────────────────────────
+// ── OpenClaw 插件入口 ──────────────────────────────────────────────────────────
 //
-// OpenClaw calls register(api) once when the plugin loads.
-// We subscribe to two hooks:
-//   gateway:startup  — fires for each connected user session → start scheduler
-//   message:received — fires for every inbound message → handle button taps
+// OpenClaw 在插件加载时调用一次 register(api)。
+// 订阅两个钩子：
+//   gateway:startup  — 每个用户会话连接时触发 → 启动调度器
+//   message:received — 每条入站消息触发 → 处理按钮点击
 //
 export function register(api: OpenClawPluginAPI): void {
-  // Hook 1: user session starts (gateway connects / bot starts)
+  // 钩子 1：用户会话启动（网关连接 / bot 启动）
   api.on('gateway:startup', async (payload: OpenClawHookPayload) => {
     const userId = payload.senderId ?? 'default';
     const ctx = makeCtx(api, userId, payload.timezone);
     await handleLoad(ctx);
   });
 
-  // Hook 2: inbound message — handle /vocab slash command or button-tap action payload
+  // 钩子 2：入站消息 — 处理 /vocab 斜杠命令或按钮点击 action payload
   api.on('message:received', async (payload: OpenClawHookPayload) => {
     const userId = payload.senderId ?? 'default';
     const ctx = makeCtx(api, userId, payload.timezone);
 
-    // /vocab slash command → immediate push
+    // /vocab 命令 → 立即推送
     if (payload.text?.trim() === '/vocab') {
       await triggerPush(ctx);
       return;
@@ -150,9 +152,8 @@ export function register(api: OpenClawPluginAPI): void {
   });
 }
 
-// ── Legacy / test-harness entry points ────────────────────────────────────────
-// Kept so unit tests and manual sandbox runs can call these directly
-// without needing a full OpenClaw runtime.
+// ── 旧版 / 测试入口 ────────────────────────────────────────────────────────────
+// 保留这些导出，使单元测试和手动沙箱运行无需完整的 OpenClaw 运行时也能直接调用
 
 export async function onLoad(ctx: OpenClawContext): Promise<void> {
   await handleLoad(ctx);
@@ -162,7 +163,7 @@ export async function onAction(ctx: OpenClawContext, payload: ActionPayload): Pr
   await handleAction(ctx, payload);
 }
 
-// Named hook handlers referenced in openclaw.plugin.json hooks map
+// openclaw.plugin.json hooks map 中引用的具名钩子处理函数
 export async function onGatewayStartup(
   payload: OpenClawHookPayload,
   api: OpenClawPluginAPI,

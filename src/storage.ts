@@ -7,11 +7,12 @@ const DEFAULT_CONFIG: UserConfig = {
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   dailyTarget: 5,
   vocabTags: ['ielts'],
+  nativeLang: 'zh',
 };
 
 export function defaultProgress(): UserProgress {
   return {
-    level: 7,  // cefrCeiling(7)=B2 — matches the IELTS dataset (all words are B2–C1)
+    level: 7,  // cefrCeiling(7)=B2 — 与 IELTS 数据集匹配（所有词均为 B2–C1）
     mastered: [],
     weights: {},
     lastPushTime: 0,
@@ -19,7 +20,7 @@ export function defaultProgress(): UserProgress {
   };
 }
 
-// ── userId = "${channelId}:${from}" ───────────────────────
+// ── userId 格式："${channelId}:${from}" ──────────────────
 
 function progressPath(stateDir: string, userId: string): string {
   const safe = userId.replace(/[^a-zA-Z0-9_\-@.:]/g, '_');
@@ -42,7 +43,7 @@ async function readJson<T>(path: string, fallback: T): Promise<T> {
   }
 }
 
-// ── Progress ──────────────────────────────────────────────
+// ── 学习进度 ──────────────────────────────────────────────
 
 export async function loadProgress(stateDir: string, userId: string): Promise<UserProgress> {
   return readJson(progressPath(stateDir, userId), defaultProgress());
@@ -57,7 +58,7 @@ export async function saveProgress(
   await writeFile(progressPath(stateDir, userId), JSON.stringify(progress), 'utf8');
 }
 
-// ── Routes (channelId + to per userId) ───────────────────
+// ── 路由（每个 userId 的 channelId + to）────────────────
 
 export async function loadRoutes(stateDir: string): Promise<Record<string, UserRoute>> {
   return readJson(routesPath(stateDir), {});
@@ -75,7 +76,7 @@ export async function saveRoutes(stateDir: string, routes: Record<string, UserRo
   await writeFile(routesPath(stateDir), JSON.stringify(routes), 'utf8');
 }
 
-// ── Config seeding ────────────────────────────────────────
+// ── 配置初始化 ────────────────────────────────────────────
 
 export function seedConfig(
   pluginConfig: Record<string, unknown> | undefined,
@@ -89,5 +90,6 @@ export function seedConfig(
     timezone: timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     dailyTarget: Number(pluginConfig?.dailyTarget ?? 5),
     vocabTags: [String(pluginConfig?.vocabSource ?? 'ielts')],
+    nativeLang: String(pluginConfig?.nativeLang ?? 'zh'),
   };
 }

@@ -1,5 +1,5 @@
 {
-  "name": "@openclaw/vocab-coach",
+  "name": "@jungle666/openclaw-vocab-coach",
   "version": "0.2.0",
   "description": "Adaptive spaced-repetition vocabulary plugin for OpenClaw — pushes IELTS/TOEFL/CET words to Feishu, Telegram, WhatsApp and more with LLM-enriched cards",
   "author": "JungleLiu",
