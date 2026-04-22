@@ -7,6 +7,8 @@ const BASE_CONFIG: UserConfig = {
   timezone: 'UTC',
   dailyTarget: 5,
   vocabTags: ['ielts'],
+  nativeLang: 'zh',
+  targetLang: 'en',
 };
 
 describe('nextWaitMs', () => {

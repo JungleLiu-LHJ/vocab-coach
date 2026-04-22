@@ -26,6 +26,8 @@ function makeProgress(overrides: Partial<UserProgress> = {}): UserProgress {
       timezone: 'UTC',
       dailyTarget: 5,
       vocabTags: ['ielts'],
+      nativeLang: 'zh',
+      targetLang: 'en',
     },
     ...overrides,
   };
@@ -62,6 +64,8 @@ describe('selectNextWord', () => {
         timezone: 'UTC',
         dailyTarget: 5,
         vocabTags: ['cet4'],
+        nativeLang: 'zh',
+        targetLang: 'en',
       },
     });
     const word = selectNextWord(progress, SAMPLE_VOCAB, NOW);
