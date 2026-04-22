@@ -1,5 +1,6 @@
-import type { VocabWord, GeneratedContent } from './types.js';
+import type { OpenClawContext, VocabWord, GeneratedContent } from './types.js';
 
+// ── 英语 CEFR 标签（用于 prompt 中的等级提示） ────────────
 const CEFR_LABELS: Record<number, string> = {
   1: 'A1 (Beginner)',
   2: 'A2 (Elementary)',
@@ -36,6 +37,30 @@ function langName(code: string): string {
   return LANG_NAMES[code.split('-')[0]] ?? code;
 }
 
+// 每个目标语言用的"发音"字段说明（英语=IPA，中文=拼音，日语=假名/罗马字，...）
+function pronunciationHint(targetLang: string): string {
+  const code = targetLang.split('-')[0];
+  switch (code) {
+    case 'zh':
+      return 'Hanyu Pinyin with tone marks, e.g. "nǐ hǎo"';
+    case 'ja':
+      return 'Hiragana reading followed by romaji in parentheses, e.g. "べんきょう (benkyou)"';
+    case 'ko':
+      return 'Revised Romanization, e.g. "annyeong"';
+    case 'en':
+    default:
+      return 'IPA phonetic transcription in slashes with primary stress mark, e.g. "/ˈʌltɪmətəm/"';
+  }
+}
+
+function levelLabel(targetLang: string, skillLevel: number): string {
+  if (targetLang.startsWith('en')) return cefrLabel(skillLevel);
+  // 其它语言暂时只返回一个模糊的等级说明
+  if (skillLevel <= 3) return 'Beginner';
+  if (skillLevel <= 7) return 'Intermediate';
+  return 'Advanced';
+}
+
 // LLM 调用失败时的静态兜底内容（3个例句）
 function staticFallback(word: VocabWord): GeneratedContent {
   const w = word.w;
@@ -55,75 +80,42 @@ function staticFallback(word: VocabWord): GeneratedContent {
   };
 }
 
-// 从 subagent session 消息中提取最后一条 assistant 的文本
-function extractAssistantText(messages: unknown[]): string {
-  // 从后往前找最后一条 assistant 消息
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i] as Record<string, unknown>;
-    if (msg?.role !== 'assistant') continue;
-    const content = msg.content;
-    if (typeof content === 'string') return content;
-    if (Array.isArray(content)) {
-      // Claude 格式：[{ type: 'text', text: '...' }, ...]
-      const text = content
-        .filter((b: unknown) => (b as Record<string, unknown>)?.type === 'text')
-        .map((b: unknown) => (b as Record<string, unknown>).text)
-        .join('');
-      if (text) return text;
-    }
-  }
-  return '';
-}
-
-// subagent API 的最小类型
-type SubagentRuntime = {
-  run(params: { sessionKey: string; message: string; deliver?: boolean }): Promise<{ runId: string }>;
-  waitForRun(params: { runId: string; timeoutMs?: number }): Promise<{ status: string; error?: string }>;
-  getSessionMessages(params: { sessionKey: string; limit?: number }): Promise<{ messages: unknown[] }>;
-  deleteSession(params: { sessionKey: string; deleteTranscript?: boolean }): Promise<void>;
-};
-
 export async function generateContent(
-  subagent: SubagentRuntime,
+  ctx: OpenClawContext,
   word: VocabWord,
   userLevel: number,
   nativeLang: string = 'zh',
+  targetLang: string = 'en',
 ): Promise<GeneratedContent> {
   const native = langName(nativeLang);
+  const target = langName(targetLang);
   const defHint = word.def ? ` (${native} meaning: ${word.def})` : '';
   const glossExample = nativeLang === 'zh'
     ? '["accelerate (加速)", "momentum (动力)"]'
     : `["accelerate (speed up)", "momentum (driving force)"]`;
 
-  const prompt = `You are a vocabulary flashcard generator. Output ONLY a single JSON object — no thinking, no explanation, no markdown fences.
+  const prompt = `You are a vocabulary flashcard generator for a ${target} learner. Output ONLY a single JSON object — no thinking, no explanation, no markdown fences.
 
-Word: "${word.w}"${defHint}
+Word (in ${target}): "${word.w}"${defHint}
 User's native language: ${native}
-User CEFR level: ${cefrLabel(userLevel)}
+User level: ${levelLabel(targetLang, userLevel)}
 
 Required JSON fields:
 - "nativeDef": Clear definition in ${native}, 1-2 sentences.
-- "englishDef": Clear English definition, 1 concise sentence (like a dictionary entry).
-- "phonetic": IPA phonetic transcription in slashes, e.g. "/ˈʌltɪmətəm/". Include primary stress mark.
+- "englishDef": Clear definition in ${target} if ${target} is not English, otherwise a concise English dictionary-style sentence.
+- "phonetic": ${pronunciationHint(targetLang)}.
 - "partOfSpeech": Part of speech abbreviation, e.g. "n.", "v.", "adj.", "adv.", "n./v." if multiple.
-- "forms": Array of 2-4 related word forms with ${native} gloss, e.g. ${glossExample}. Include plural/verb forms/derived words.
-- "examples": Array of exactly 3 English sentences showing everyday or academic usage. IMPORTANT: Do NOT write news headlines, current events, or sentences mentioning specific years, analysts, reports, or recent events. Use timeless, natural contexts: personal life, school, work, nature, travel, etc.
-- "related": Array of 2-3 related English words, each with a short ${native} gloss, e.g. ${glossExample}.
+- "forms": Array of 2-4 related word forms with ${native} gloss, e.g. ${glossExample}. Include plural/verb forms/derived words where applicable.
+- "examples": Array of exactly 3 sentences in ${target} showing everyday or academic usage. IMPORTANT: Do NOT write news headlines, current events, or sentences mentioning specific years, analysts, reports, or recent events. Use timeless, natural contexts: personal life, school, work, nature, travel, etc.
+- "related": Array of 2-3 related ${target} words, each with a short ${native} gloss, e.g. ${glossExample}.
 - "mnemonic": One vivid memory trick in ${native} using etymology or imagery, ≤20 words.
 
 Output format (strict — nothing before or after this object):
 {"nativeDef":"...","englishDef":"...","phonetic":"...","partOfSpeech":"...","forms":["...","..."],"examples":["...","...","..."],"related":["...","..."],"mnemonic":"..."}`;
 
-  const sessionKey = `vocab-coach-gen-${word.id}-${Date.now()}`;
-
   try {
-    const { runId } = await subagent.run({ sessionKey, message: prompt, deliver: false, idempotencyKey: sessionKey });
-    const result = await subagent.waitForRun({ runId, timeoutMs: 30000 });
-    if (result.status !== 'ok') throw new Error(`subagent 失败: ${result.error ?? result.status}`);
-
-    const { messages } = await subagent.getSessionMessages({ sessionKey, limit: 10 });
-    const raw = extractAssistantText(messages);
-    if (!raw) throw new Error('未找到 assistant 响应');
+    const raw = await ctx.agent.complete(prompt);
+    if (!raw) throw new Error('agent 返回空响应');
 
     // 提取 JSON 对象，兼容模型在输出前加思考过程或代码围栏的情况
     const match = raw.match(/\{[\s\S]*"nativeDef"[\s\S]*\}/);
@@ -144,8 +136,5 @@ Output format (strict — nothing before or after this object):
   } catch (err) {
     console.error('[vocab-coach] generateContent 失败，使用静态兜底:', err);
     return staticFallback(word);
-  } finally {
-    // 清理临时 session，忽略清理失败
-    subagent.deleteSession({ sessionKey, deleteTranscript: true }).catch(() => {});
   }
 }

@@ -33,6 +33,10 @@ export interface UserConfig {
   vocabTags: string[];            // 如 ["ielts"]
   /** 用户母语（BCP 47），控制卡片界面语言和 LLM 释义语言，默认 'zh' */
   nativeLang: string;
+  /** 目标学习语言（BCP 47），默认 'en'。决定词库筛选和等级体系 */
+  targetLang?: string;
+  /** 暂停推送 */
+  paused?: boolean;
   // 插件级飞书凭证
   feishuAppId?: string;
   feishuAppSecret?: string;
@@ -101,6 +105,10 @@ export interface OpenClawContext {
     vocabSource?: string;
     /** 用户母语，如 'zh'、'en'、'ja' */
     nativeLang?: string;
+    /** 目标学习语言，如 'en'、'ja'、'zh'。默认 'en' */
+    targetLang?: string;
+    /** 新用户起始等级（1–10）；未提供时按 targetLang 选合理默认值 */
+    startLevel?: number;
     /** 插件级飞书凭证（通过 openclaw plugins config 设置） */
     feishuAppId?: string;
     feishuAppSecret?: string;
@@ -143,6 +151,12 @@ export interface OpenClawHookPayload {
   action?: string;
   /** 网关检测到的发送者 IANA 时区 */
   timezone?: string;
+  /** 渠道标识，如 'feishu'、'telegram'（用于路由） */
+  channelId?: string;
+  /** 发送目标（群或 DM 的标识） */
+  conversationId?: string;
+  /** 多账号渠道的账号 ID */
+  accountId?: string;
   timestamp: number;
 }
 
