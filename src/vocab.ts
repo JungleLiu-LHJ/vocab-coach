@@ -1,4 +1,4 @@
-import type { OpenClawContext, UserProgress, VocabWord } from './types.js';
+import type { OpenClawContext, ScopeProgressSnapshot, VocabWord } from './types.js';
 // 内置 IELTS 词汇表（11,287 词，B2–C1，标签 'ielts'）
 // esbuild 在构建时会将此 JSON 内联，首次运行无需网络请求
 import BUNDLED_VOCAB from '../data/ielts-vocab.json';
@@ -43,19 +43,19 @@ export async function ensureCached(ctx: OpenClawContext): Promise<VocabWord[]> {
 }
 
 export function selectNextWord(
-  progress: UserProgress,
+  progress: ScopeProgressSnapshot,
   vocab: VocabWord[],
   now: number = Date.now(),
 ): VocabWord | null {
   const masteredSet = new Set(progress.mastered);
   const ceiling = cefrCeiling(progress.level);
-  const { vocabTags } = progress.config;
+  const vocabSource = progress.config.vocabSource;
 
   // 筛选候选词：未掌握、在 CEFR 上限内、匹配标签
   const eligible = vocab.filter((word) => {
     if (masteredSet.has(word.id)) return false;
     if (CEFR_ORDER[word.lv] !== undefined && CEFR_ORDER[word.lv] > ceiling) return false;
-    if (vocabTags.length > 0 && !vocabTags.includes(word.tag)) return false;
+    if (vocabSource && word.tag !== vocabSource) return false;
     return true;
   });
 

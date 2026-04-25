@@ -1,13 +1,13 @@
-import type { UserConfig } from './types.js';
+import type { ScopeConfig } from './types.js';
 
-export function nextWaitMs(config: UserConfig): number {
-  const windowMs = (config.activeHours[1] - config.activeHours[0]) * 3_600_000;
+export function nextWaitMs(config: ScopeConfig): number {
+  const windowMs = Math.max(1, (config.activeHoursEnd - config.activeHoursStart) * 3_600_000);
   const meanIntervalMs = windowMs / config.dailyTarget;
   // 指数分布（泊松到达时间间隔）
   return -Math.log(Math.random()) * meanIntervalMs;
 }
 
-export function msUntilWindowStart(config: UserConfig): number {
+export function msUntilWindowStart(config: ScopeConfig): number {
   const tz = config.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
   const now = new Date();
 
@@ -19,7 +19,7 @@ export function msUntilWindowStart(config: UserConfig): number {
   });
   const currentHour = parseInt(hourStr, 10);
 
-  const [start] = config.activeHours;
+  const start = config.activeHoursStart;
   let hoursUntilStart: number;
 
   if (currentHour < start) {
@@ -34,7 +34,7 @@ export function msUntilWindowStart(config: UserConfig): number {
   return hoursUntilStart * 3_600_000 - minutesIntoHour;
 }
 
-export function isInActiveWindow(config: UserConfig): boolean {
+export function isInActiveWindow(config: ScopeConfig): boolean {
   const tz = config.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
   const now = new Date();
   const hourStr = now.toLocaleString('en-US', {
@@ -43,13 +43,13 @@ export function isInActiveWindow(config: UserConfig): boolean {
     timeZone: tz,
   });
   const currentHour = parseInt(hourStr, 10);
-  return currentHour >= config.activeHours[0] && currentHour < config.activeHours[1];
+  return currentHour >= config.activeHoursStart && currentHour < config.activeHoursEnd;
 }
 
 // 调度下一次推送回调，遵守活跃时间窗口。
 // `triggerPush` 是到达推送时间时调用的回调。
 export function scheduleNext(
-  config: UserConfig,
+  config: ScopeConfig,
   triggerPush: () => void,
 ): ReturnType<typeof setTimeout> {
   if (isInActiveWindow(config)) {

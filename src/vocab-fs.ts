@@ -6,7 +6,7 @@
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import type { VocabWord, UserProgress } from './types.js';
+import type { VocabWord } from './types.js';
 
 // Re-export selectNextWord so tests can import from either location
 export { selectNextWord } from './vocab.js';

@@ -1,18 +1,23 @@
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { mkdir, readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { UserProgress, UserConfig, UserRoute } from './types.js';
+import type { FSRSState, ScopeConfig, ScopeProgressSnapshot } from './types.js';
 
-const DEFAULT_CONFIG: UserConfig = {
-  activeHours: [9, 22],
+export interface LegacyProgressFile extends ScopeProgressSnapshot {}
+
+const DEFAULT_CONFIG: ScopeConfig = {
+  activeHoursStart: 9,
+  activeHoursEnd: 22,
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   dailyTarget: 5,
-  vocabTags: ['ielts'],
+  vocabSource: 'ielts',
   nativeLang: 'zh',
+  paused: false,
 };
 
-export function defaultProgress(): UserProgress {
+export function defaultLegacyProgress(scopeId: string): LegacyProgressFile {
   return {
-    level: 7,  // cefrCeiling(7)=B2 — 与 IELTS 数据集匹配（所有词均为 B2–C1）
+    scopeId,
+    level: 7,
     mastered: [],
     weights: {},
     lastPushTime: 0,
@@ -20,19 +25,17 @@ export function defaultProgress(): UserProgress {
   };
 }
 
-// ── userId 格式："${channelId}:${from}" ──────────────────
-
-function progressPath(stateDir: string, userId: string): string {
-  const safe = userId.replace(/[^a-zA-Z0-9_\-@.:]/g, '_');
-  return join(stateDir, 'vocab-progress', `${safe}.json`);
+function progressDir(stateDir: string): string {
+  return join(stateDir, 'vocab-progress');
 }
 
-function routesPath(stateDir: string): string {
-  return join(stateDir, 'vocab-progress', '_routes.json');
+function progressPath(stateDir: string, scopeId: string): string {
+  const safe = scopeId.replace(/[^a-zA-Z0-9_\-@.:]/g, '_');
+  return join(progressDir(stateDir), `${safe}.json`);
 }
 
 async function ensureDir(stateDir: string): Promise<void> {
-  await mkdir(join(stateDir, 'vocab-progress'), { recursive: true });
+  await mkdir(progressDir(stateDir), { recursive: true });
 }
 
 async function readJson<T>(path: string, fallback: T): Promise<T> {
@@ -43,53 +46,22 @@ async function readJson<T>(path: string, fallback: T): Promise<T> {
   }
 }
 
-// ── 学习进度 ──────────────────────────────────────────────
-
-export async function loadProgress(stateDir: string, userId: string): Promise<UserProgress> {
-  return readJson(progressPath(stateDir, userId), defaultProgress());
+export async function loadLegacyProgress(stateDir: string, scopeId: string): Promise<LegacyProgressFile> {
+  return readJson(progressPath(stateDir, scopeId), defaultLegacyProgress(scopeId));
 }
 
-export async function saveProgress(
-  stateDir: string,
-  userId: string,
-  progress: UserProgress,
-): Promise<void> {
-  await ensureDir(stateDir);
-  await writeFile(progressPath(stateDir, userId), JSON.stringify(progress), 'utf8');
+export async function listLegacyProgressFiles(stateDir: string): Promise<string[]> {
+  try {
+    await ensureDir(stateDir);
+    const files = await readdir(progressDir(stateDir));
+    return files.filter((file) => file.endsWith('.json'));
+  } catch {
+    return [];
+  }
 }
 
-// ── 路由（每个 userId 的 channelId + to）────────────────
-
-export async function loadRoutes(stateDir: string): Promise<Record<string, UserRoute>> {
-  return readJson(routesPath(stateDir), {});
-}
-
-export async function saveRoute(stateDir: string, userId: string, route: UserRoute): Promise<void> {
-  await ensureDir(stateDir);
-  const routes = await loadRoutes(stateDir);
-  routes[userId] = route;
-  await writeFile(routesPath(stateDir), JSON.stringify(routes), 'utf8');
-}
-
-export async function saveRoutes(stateDir: string, routes: Record<string, UserRoute>): Promise<void> {
-  await ensureDir(stateDir);
-  await writeFile(routesPath(stateDir), JSON.stringify(routes), 'utf8');
-}
-
-// ── 配置初始化 ────────────────────────────────────────────
-
-export function seedConfig(
-  pluginConfig: Record<string, unknown> | undefined,
-  timezone?: string,
-): UserConfig {
-  return {
-    activeHours: [
-      Number(pluginConfig?.activeHoursStart ?? 9),
-      Number(pluginConfig?.activeHoursEnd ?? 22),
-    ],
-    timezone: timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
-    dailyTarget: Number(pluginConfig?.dailyTarget ?? 5),
-    vocabTags: [String(pluginConfig?.vocabSource ?? 'ielts')],
-    nativeLang: String(pluginConfig?.nativeLang ?? 'zh'),
-  };
+export function legacyStateToMap(weights: Record<string, FSRSState> | Record<number, FSRSState>): Record<number, FSRSState> {
+  return Object.fromEntries(
+    Object.entries(weights).map(([key, value]) => [Number(key), value]),
+  );
 }

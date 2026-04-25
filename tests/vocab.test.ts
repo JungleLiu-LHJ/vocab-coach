@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { selectNextWord } from '../src/vocab.js';
-import { newState, applyRating } from '../src/srs.js';
-import type { UserProgress, VocabWord } from '../src/types.js';
+import { newState } from '../src/srs.js';
+import type { ScopeProgressSnapshot, VocabWord } from '../src/types.js';
 
 const NOW = 1_700_000_000_000;
 const ONE_DAY_MS = 86_400_000;
@@ -15,17 +15,21 @@ const SAMPLE_VOCAB: VocabWord[] = [
   { id: 6, w: 'aware',      lv: 'B1', tag: 'ielts', def: 'having knowledge of something' },
 ];
 
-function makeProgress(overrides: Partial<UserProgress> = {}): UserProgress {
+function makeProgress(overrides: Partial<ScopeProgressSnapshot> = {}): ScopeProgressSnapshot {
   return {
+    scopeId: 'direct:test:user-1',
     level: 8, // B2 ceiling
     mastered: [],
     weights: {},
     lastPushTime: 0,
     config: {
-      activeHours: [9, 22],
+      activeHoursStart: 9,
+      activeHoursEnd: 22,
       timezone: 'UTC',
       dailyTarget: 5,
-      vocabTags: ['ielts'],
+      vocabSource: 'ielts',
+      nativeLang: 'zh',
+      paused: false,
     },
     ...overrides,
   };
@@ -58,10 +62,13 @@ describe('selectNextWord', () => {
   it('filters by vocabTags', () => {
     const progress = makeProgress({
       config: {
-        activeHours: [9, 22],
+        activeHoursStart: 9,
+        activeHoursEnd: 22,
         timezone: 'UTC',
         dailyTarget: 5,
-        vocabTags: ['cet4'],
+        vocabSource: 'cet4',
+        nativeLang: 'zh',
+        paused: false,
       },
     });
     const word = selectNextWord(progress, SAMPLE_VOCAB, NOW);
