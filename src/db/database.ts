@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS learning_scope_progress (
   active_hours_end INTEGER NOT NULL DEFAULT 22,
   vocab_source TEXT NOT NULL DEFAULT 'ielts',
   native_lang TEXT NOT NULL DEFAULT 'zh',
+  target_lang TEXT NOT NULL DEFAULT 'en',
   timezone TEXT NOT NULL DEFAULT 'Asia/Shanghai',
   paused INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
@@ -89,6 +90,19 @@ export class VocabDatabase {
     this.db.pragma('foreign_keys = ON');
     this.db.pragma('synchronous = NORMAL');
     this.db.exec(SCHEMA_SQL);
+    this.runMigrations();
+  }
+
+  // 给已存在的旧 DB 升级缺失字段。SQLite 不支持 ADD COLUMN IF NOT EXISTS，
+  // 因此先用 PRAGMA 检查列是否存在，再决定是否 ALTER。
+  private runMigrations(): void {
+    const cols = this.db
+      .prepare("PRAGMA table_info(learning_scope_progress)")
+      .all() as Array<{ name: string }>;
+    const colNames = new Set(cols.map((c) => c.name));
+    if (!colNames.has('target_lang')) {
+      this.db.exec(`ALTER TABLE learning_scope_progress ADD COLUMN target_lang TEXT NOT NULL DEFAULT 'en'`);
+    }
   }
 
   static getInstance(stateDir: string): VocabDatabase {

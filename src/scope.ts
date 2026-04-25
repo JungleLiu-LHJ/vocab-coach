@@ -17,6 +17,7 @@ export function seedScopeConfig(
     dailyTarget: Number(pluginConfig?.dailyTarget ?? DEFAULT_SCOPE_CONFIG.dailyTarget),
     vocabSource: String(pluginConfig?.vocabSource ?? DEFAULT_SCOPE_CONFIG.vocabSource),
     nativeLang: String(pluginConfig?.nativeLang ?? DEFAULT_SCOPE_CONFIG.nativeLang),
+    targetLang: String(pluginConfig?.targetLang ?? DEFAULT_SCOPE_CONFIG.targetLang),
     paused: DEFAULT_SCOPE_CONFIG.paused,
   };
 }

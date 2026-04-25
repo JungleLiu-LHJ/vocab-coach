@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS learning_scope_progress (
   active_hours_end INTEGER NOT NULL DEFAULT 22,
   vocab_source TEXT NOT NULL DEFAULT 'ielts',
   native_lang TEXT NOT NULL DEFAULT 'zh',
+  target_lang TEXT NOT NULL DEFAULT 'en',
   timezone TEXT NOT NULL DEFAULT 'Asia/Shanghai',
   paused INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),

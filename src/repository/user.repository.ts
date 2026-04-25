@@ -16,6 +16,7 @@ interface ScopeRow {
   active_hours_end: number;
   vocab_source: string;
   native_lang: string;
+  target_lang: string;
   timezone: string;
   paused: number;
 }
@@ -28,6 +29,8 @@ function toConfig(row: ScopeRow): ScopeConfig {
     dailyTarget: row.daily_target,
     vocabSource: row.vocab_source,
     nativeLang: row.native_lang,
+    // 老数据兼容：迁移后字段存在但未填充时回落到 'en'
+    targetLang: row.target_lang || 'en',
     paused: row.paused === 1,
   };
 }
@@ -64,8 +67,8 @@ export class UserRepository {
       `INSERT INTO learning_scope_progress (
         scope_id, scope_type, channel_id, conversation_id, from_id, target_id, account_id,
         level, last_push_time, daily_target, active_hours_start, active_hours_end,
-        vocab_source, native_lang, timezone, paused, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, 7, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        vocab_source, native_lang, target_lang, timezone, paused, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 7, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         scope.scopeId,
         scope.scopeType,
@@ -79,6 +82,7 @@ export class UserRepository {
         config.activeHoursEnd,
         config.vocabSource,
         config.nativeLang,
+        config.targetLang,
         config.timezone,
         config.paused ? 1 : 0,
         now,
@@ -98,7 +102,7 @@ export class UserRepository {
       `UPDATE learning_scope_progress
        SET scope_type = ?, channel_id = ?, conversation_id = ?, from_id = ?, target_id = ?, account_id = ?,
            daily_target = ?, active_hours_start = ?, active_hours_end = ?, vocab_source = ?,
-           native_lang = ?, timezone = ?, paused = ?, updated_at = ?
+           native_lang = ?, target_lang = ?, timezone = ?, paused = ?, updated_at = ?
        WHERE scope_id = ?`,
       [
         scope.scopeType,
@@ -112,6 +116,7 @@ export class UserRepository {
         config.activeHoursEnd,
         config.vocabSource,
         config.nativeLang,
+        config.targetLang,
         config.timezone,
         config.paused ? 1 : 0,
         Date.now(),
@@ -126,7 +131,7 @@ export class UserRepository {
     this.db.execute(
       `UPDATE learning_scope_progress
        SET daily_target = ?, active_hours_start = ?, active_hours_end = ?, vocab_source = ?,
-           native_lang = ?, timezone = ?, paused = ?, updated_at = ?
+           native_lang = ?, target_lang = ?, timezone = ?, paused = ?, updated_at = ?
        WHERE scope_id = ?`,
       [
         config.dailyTarget,
@@ -134,6 +139,7 @@ export class UserRepository {
         config.activeHoursEnd,
         config.vocabSource,
         config.nativeLang,
+        config.targetLang,
         config.timezone,
         config.paused ? 1 : 0,
         Date.now(),

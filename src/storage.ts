@@ -11,6 +11,7 @@ const DEFAULT_CONFIG: ScopeConfig = {
   dailyTarget: 5,
   vocabSource: 'ielts',
   nativeLang: 'zh',
+  targetLang: 'en',
   paused: false,
 };
 

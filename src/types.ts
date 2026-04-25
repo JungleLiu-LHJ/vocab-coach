@@ -25,6 +25,8 @@ export interface ScopeConfig {
   dailyTarget: number;
   vocabSource: string;
   nativeLang: string;
+  // 目标学习语言（BCP 47），决定词库等级体系（CEFR/JLPT/HSK）和生成提示词
+  targetLang: string;
   paused: boolean;
 }
 
@@ -112,6 +114,7 @@ export interface OpenClawPluginConfig {
   dailyTarget?: number;
   vocabSource?: string;
   nativeLang?: string;
+  targetLang?: string;
 }
 
 export interface OpenClawContext {
@@ -167,5 +170,6 @@ export const DEFAULT_SCOPE_CONFIG: ScopeConfig = {
   dailyTarget: 5,
   vocabSource: 'ielts',
   nativeLang: 'zh',
+  targetLang: 'en',
   paused: false,
 };

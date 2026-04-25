@@ -29,6 +29,7 @@ function makeProgress(overrides: Partial<ScopeProgressSnapshot> = {}): ScopeProg
       dailyTarget: 5,
       vocabSource: 'ielts',
       nativeLang: 'zh',
+      targetLang: 'en',
       paused: false,
     },
     ...overrides,
@@ -68,6 +69,7 @@ describe('selectNextWord', () => {
         dailyTarget: 5,
         vocabSource: 'cet4',
         nativeLang: 'zh',
+        targetLang: 'en',
         paused: false,
       },
     });
