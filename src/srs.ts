@@ -6,6 +6,7 @@ const MULTIPLIERS: Record<FeedbackRating, number> = {
   know: 2.5,
   fuzzy: 1.5,
   forgot: 0.1,
+  master: MASTERY_THRESHOLD,
 };
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -26,7 +27,7 @@ export function applyRating(
   now: number = Date.now(),
 ): FSRSState {
   const factor = MULTIPLIERS[rating];
-  const newS = Math.max(1, state.s * factor);
+  const newS = rating === 'master' ? MASTERY_THRESHOLD : Math.max(1, state.s * factor);
   const newD =
     rating === 'know'
       ? Math.max(1, state.d - 0.3)

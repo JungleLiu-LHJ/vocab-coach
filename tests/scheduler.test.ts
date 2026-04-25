@@ -1,12 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { nextWaitMs, isInActiveWindow, msUntilWindowStart } from '../src/scheduler.js';
-import type { UserConfig } from '../src/types.js';
+import type { ScopeConfig } from '../src/types.js';
 
-const BASE_CONFIG: UserConfig = {
-  activeHours: [9, 22],
+const BASE_CONFIG: ScopeConfig = {
+  activeHoursStart: 9,
+  activeHoursEnd: 22,
   timezone: 'UTC',
   dailyTarget: 5,
-  vocabTags: ['ielts'],
+  vocabSource: 'ielts',
+  nativeLang: 'zh',
+  paused: false,
 };
 
 describe('nextWaitMs', () => {
@@ -34,8 +37,8 @@ describe('nextWaitMs', () => {
 
   it('scales with window size: wider window → longer mean interval', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.5);
-    const narrow = nextWaitMs({ ...BASE_CONFIG, activeHours: [9, 11] });
-    const wide = nextWaitMs({ ...BASE_CONFIG, activeHours: [8, 22] });
+    const narrow = nextWaitMs({ ...BASE_CONFIG, activeHoursStart: 9, activeHoursEnd: 11 });
+    const wide = nextWaitMs({ ...BASE_CONFIG, activeHoursStart: 8, activeHoursEnd: 22 });
     expect(wide).toBeGreaterThan(narrow);
     vi.restoreAllMocks();
   });

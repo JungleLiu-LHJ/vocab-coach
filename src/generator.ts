@@ -1,4 +1,4 @@
-import type { VocabWord, GeneratedContent } from './types.js';
+import type { GeneratedContent, OpenClawAgent, VocabWord } from './types.js';
 
 const CEFR_LABELS: Record<number, string> = {
   1: 'A1 (Beginner)',
@@ -75,16 +75,8 @@ function extractAssistantText(messages: unknown[]): string {
   return '';
 }
 
-// subagent API 的最小类型
-type SubagentRuntime = {
-  run(params: { sessionKey: string; message: string; deliver?: boolean }): Promise<{ runId: string }>;
-  waitForRun(params: { runId: string; timeoutMs?: number }): Promise<{ status: string; error?: string }>;
-  getSessionMessages(params: { sessionKey: string; limit?: number }): Promise<{ messages: unknown[] }>;
-  deleteSession(params: { sessionKey: string; deleteTranscript?: boolean }): Promise<void>;
-};
-
 export async function generateContent(
-  subagent: SubagentRuntime,
+  agent: OpenClawAgent,
   word: VocabWord,
   userLevel: number,
   nativeLang: string = 'zh',
@@ -117,12 +109,20 @@ Output format (strict — nothing before or after this object):
   const sessionKey = `vocab-coach-gen-${word.id}-${Date.now()}`;
 
   try {
-    const { runId } = await subagent.run({ sessionKey, message: prompt, deliver: false, idempotencyKey: sessionKey });
-    const result = await subagent.waitForRun({ runId, timeoutMs: 30000 });
-    if (result.status !== 'ok') throw new Error(`subagent 失败: ${result.error ?? result.status}`);
+    let raw = '';
+    if (agent.run && agent.waitForRun && agent.getSessionMessages) {
+      const { runId } = await agent.run({ sessionKey, message: prompt, deliver: false, idempotencyKey: sessionKey });
+      const result = await agent.waitForRun({ runId, timeoutMs: 30000 });
+      if (result.status !== 'ok') throw new Error(`subagent 失败: ${result.error ?? result.status}`);
 
-    const { messages } = await subagent.getSessionMessages({ sessionKey, limit: 10 });
-    const raw = extractAssistantText(messages);
+      const { messages } = await agent.getSessionMessages({ sessionKey, limit: 10 });
+      raw = extractAssistantText(messages);
+    } else if (agent.complete) {
+      raw = await agent.complete(prompt);
+    } else {
+      throw new Error('agent 不支持生成接口');
+    }
+
     if (!raw) throw new Error('未找到 assistant 响应');
 
     // 提取 JSON 对象，兼容模型在输出前加思考过程或代码围栏的情况
@@ -146,6 +146,6 @@ Output format (strict — nothing before or after this object):
     return staticFallback(word);
   } finally {
     // 清理临时 session，忽略清理失败
-    subagent.deleteSession({ sessionKey, deleteTranscript: true }).catch(() => {});
+    agent.deleteSession?.({ sessionKey, deleteTranscript: true }).catch(() => {});
   }
 }

@@ -15,6 +15,7 @@ interface CardStrings {
   btnForgot: string;
   btnMaster: string;
   btnRemember: string;
+  replyHint: string;
   ackKnow: string;
   ackFuzzy: string;
   ackForgot: string;
@@ -36,6 +37,7 @@ const STRINGS: Record<string, CardStrings> = {
     btnForgot: '不知道 ✗',
     btnMaster: '完全认识 ⭐',
     btnRemember: '记得 ✓',
+    replyHint: '回复 1=认识，2=模糊，3=不知道，4=掌握',
     ackKnow: '✅ 好的，几天后再复习！',
     ackFuzzy: '🔄 收到，稍后再来一遍。',
     ackForgot: '📖 没关系，马上再推一次！',
@@ -55,6 +57,7 @@ const STRINGS: Record<string, CardStrings> = {
     btnForgot: "Don't know ✗",
     btnMaster: 'Mastered ⭐',
     btnRemember: 'Remember ✓',
+    replyHint: 'Reply 1=Know, 2=Vague, 3=Forgot, 4=Mastered',
     ackKnow: '✅ Got it! Reviewing again in a few days.',
     ackFuzzy: "🔄 OK, we'll revisit this soon.",
     ackForgot: "📖 No worries! We'll push this again shortly.",
@@ -74,6 +77,7 @@ const STRINGS: Record<string, CardStrings> = {
     btnForgot: 'わからない ✗',
     btnMaster: '完全に覚えた ⭐',
     btnRemember: '覚えている ✓',
+    replyHint: '返信: 1=知っている 2=あいまい 3=わからない 4=完全習得',
     ackKnow: '✅ 了解！数日後に復習します。',
     ackFuzzy: '🔄 わかりました。もうすぐまた復習します。',
     ackForgot: '📖 大丈夫！すぐにもう一度送ります。',
@@ -93,6 +97,7 @@ const STRINGS: Record<string, CardStrings> = {
     btnForgot: '몰라요 ✗',
     btnMaster: '완전히 알아요 ⭐',
     btnRemember: '기억해요 ✓',
+    replyHint: '답장: 1=알아요 2=흐릿해요 3=몰라요 4=완전히 알아요',
     ackKnow: '✅ 알겠어요! 며칠 후 다시 복습합니다.',
     ackFuzzy: '🔄 알겠어요. 곧 다시 보내드릴게요.',
     ackForgot: '📖 괜찮아요! 곧 다시 보내드릴게요.',
@@ -111,22 +116,36 @@ function t(lang: string): CardStrings {
 
 function feishuButton(
   label: string,
+  scopeId: string,
   wordId: number,
   rating: FeedbackRating,
   type: 'primary' | 'default' | 'danger' = 'default',
 ): Record<string, unknown> {
+  const payload: ActionPayload = { scopeId, wordId, rating };
+  const isGroup = scopeId.startsWith('channel:');
   return {
     tag: 'button',
     text: { tag: 'plain_text', content: label },
     type,
-    // 飞书要求值为字符串；wordId 存为字符串，在 parseAction 中解析回来
-    value: { wordId: String(wordId), rating },
+    // Use OpenClaw's native Feishu quick-action envelope so the channel plugin
+    // dispatches `q` back as a synthetic command.
+    value: {
+      oc: 'ocf1',
+      k: 'quick',
+      a: 'vocab.feedback',
+      q: JSON.stringify(payload),
+      c: {
+        e: Date.now() + 7 * 24 * 60 * 60 * 1000,
+        t: isGroup ? 'group' : 'p2p',
+      },
+    },
   };
 }
 
 export function buildFeishuNewWordCard(
   word: VocabWord,
   content: GeneratedContent,
+  scopeId: string,
   lang: string = 'zh',
 ): Record<string, unknown> {
   const s = t(lang);
@@ -169,6 +188,8 @@ export function buildFeishuNewWordCard(
     lines.push('', `💡 ${content.mnemonic}`);
   }
 
+  lines.push('', `> ${s.replyHint}`);
+
   return {
     config: { wide_screen_mode: true },
     header: {
@@ -181,10 +202,10 @@ export function buildFeishuNewWordCard(
       {
         tag: 'action',
         actions: [
-          feishuButton(s.btnKnow, word.id, 'know', 'primary'),
-          feishuButton(s.btnFuzzy, word.id, 'fuzzy', 'default'),
-          feishuButton(s.btnForgot, word.id, 'forgot', 'danger'),
-          feishuButton(s.btnMaster, word.id, 'master', 'default'),
+          feishuButton(s.btnKnow, scopeId, word.id, 'know', 'primary'),
+          feishuButton(s.btnFuzzy, scopeId, word.id, 'fuzzy', 'default'),
+          feishuButton(s.btnForgot, scopeId, word.id, 'forgot', 'danger'),
+          feishuButton(s.btnMaster, scopeId, word.id, 'master', 'default'),
         ],
       },
     ],
@@ -194,6 +215,7 @@ export function buildFeishuNewWordCard(
 export function buildFeishuReviewCard(
   word: VocabWord,
   reviewCount: number,
+  scopeId: string,
   lang: string = 'zh',
 ): Record<string, unknown> {
   const s = t(lang);
@@ -204,32 +226,37 @@ export function buildFeishuReviewCard(
         tag: 'div',
         text: {
           tag: 'lark_md',
-          content: `${s.review} (${reviewCount})\n\n**${word.w}**\n\n${s.recallPrompt}`,
+          content: `${s.review} (${reviewCount})\n\n**${word.w}**\n\n${s.recallPrompt}\n\n> ${s.replyHint}`,
         },
       },
       {
         tag: 'action',
         actions: [
-          feishuButton(s.btnRemember, word.id, 'fuzzy', 'primary'),
-          feishuButton(s.btnForgot, word.id, 'forgot', 'danger'),
-          feishuButton(s.btnMaster, word.id, 'master', 'default'),
+          feishuButton(s.btnRemember, scopeId, word.id, 'fuzzy', 'primary'),
+          feishuButton(s.btnForgot, scopeId, word.id, 'forgot', 'danger'),
+          feishuButton(s.btnMaster, scopeId, word.id, 'master', 'default'),
         ],
       },
     ],
   };
 }
 
-function actionButton(label: string, wordId: number, rating: FeedbackRating): string {
-  const payload: ActionPayload = { wordId, rating };
+function actionButton(label: string, scopeId: string, wordId: number, rating: FeedbackRating): string {
+  const payload: ActionPayload = { scopeId, wordId, rating };
   // OpenClaw 按钮语法：[标签](action:数据)
   return `[${label}](action:${JSON.stringify(payload)})`;
 }
 
-function revealButton(label: string, wordId: number): string {
-  return `[${label}](action:${JSON.stringify({ wordId, rating: 'fuzzy' })})`;
+function revealButton(label: string, scopeId: string, wordId: number): string {
+  return `[${label}](action:${JSON.stringify({ scopeId, wordId, rating: 'fuzzy' })})`;
 }
 
-export function buildNewWordCard(word: VocabWord, content: GeneratedContent, lang: string = 'zh'): string {
+export function buildNewWordCard(
+  word: VocabWord,
+  content: GeneratedContent,
+  scopeId: string,
+  lang: string = 'zh',
+): string {
   const s = t(lang);
   const parts: string[] = [s.newWord, ''];
 
@@ -275,17 +302,22 @@ export function buildNewWordCard(word: VocabWord, content: GeneratedContent, lan
   // 反馈按钮
   parts.push(
     [
-      actionButton(s.btnKnow, word.id, 'know'),
-      actionButton(s.btnFuzzy, word.id, 'fuzzy'),
-      actionButton(s.btnForgot, word.id, 'forgot'),
-      actionButton(s.btnMaster, word.id, 'master'),
+      actionButton(s.btnKnow, scopeId, word.id, 'know'),
+      actionButton(s.btnFuzzy, scopeId, word.id, 'fuzzy'),
+      actionButton(s.btnForgot, scopeId, word.id, 'forgot'),
+      actionButton(s.btnMaster, scopeId, word.id, 'master'),
     ].join('  '),
   );
 
   return parts.join('\n');
 }
 
-export function buildReviewCard(word: VocabWord, reviewCount: number, lang: string = 'zh'): string {
+export function buildReviewCard(
+  word: VocabWord,
+  reviewCount: number,
+  scopeId: string,
+  lang: string = 'zh',
+): string {
   const s = t(lang);
   const parts: string[] = [`${s.review}  (×${reviewCount})`, ''];
 
@@ -296,9 +328,9 @@ export function buildReviewCard(word: VocabWord, reviewCount: number, lang: stri
 
   parts.push(
     [
-      revealButton(s.revealDef, word.id),
-      actionButton(s.btnForgot, word.id, 'forgot'),
-      actionButton(s.btnMaster, word.id, 'master'),
+      revealButton(s.revealDef, scopeId, word.id),
+      actionButton(s.btnForgot, scopeId, word.id, 'forgot'),
+      actionButton(s.btnMaster, scopeId, word.id, 'master'),
     ].join('  '),
   );
 
@@ -308,13 +340,14 @@ export function buildReviewCard(word: VocabWord, reviewCount: number, lang: stri
 export function build(
   word: VocabWord,
   content: GeneratedContent,
+  scopeId: string,
   isReview: boolean,
   reviewCount: number = 0,
   lang: string = 'zh',
 ): string {
   return isReview
-    ? buildReviewCard(word, reviewCount, lang)
-    : buildNewWordCard(word, content, lang);
+    ? buildReviewCard(word, reviewCount, scopeId, lang)
+    : buildNewWordCard(word, content, scopeId, lang);
 }
 
 export function buildAckMessage(rating: FeedbackRating, lang: string = 'zh'): string {
