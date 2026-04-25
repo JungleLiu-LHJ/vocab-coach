@@ -152,6 +152,20 @@ function parseConfigCommand(text: string, current: ScopeConfig): ScopeConfig | n
       nextConfig.vocabSource = source;
       return nextConfig;
     }
+    case 'lang': {
+      // 目标学习语言：BCP 47 主标签（如 en、ja、zh、ko）
+      const code = (parts[2] ?? '').trim().toLowerCase();
+      if (!/^[a-z]{2,3}(-[a-z0-9]+)*$/i.test(code)) return null;
+      nextConfig.targetLang = code;
+      return nextConfig;
+    }
+    case 'native': {
+      // 母语 / 卡片 UI 语言
+      const code = (parts[2] ?? '').trim().toLowerCase();
+      if (!/^[a-z]{2,3}(-[a-z0-9]+)*$/i.test(code)) return null;
+      nextConfig.nativeLang = code;
+      return nextConfig;
+    }
     case 'pause':
       nextConfig.paused = true;
       return nextConfig;
@@ -171,6 +185,7 @@ function buildStatusMessage(scope: ScopeProgress, stats: {
 }, todayCount: number): string {
   return [
     `Vocabulary Status (${scope.scopeType})`,
+    `target language: ${scope.config.targetLang} · native: ${scope.config.nativeLang}`,
     `source: ${scope.config.vocabSource}`,
     `daily target: ${scope.config.dailyTarget}`,
     `active hours: ${scope.config.activeHoursStart}-${scope.config.activeHoursEnd}`,
@@ -213,21 +228,31 @@ async function triggerPushForScope(api: OpenClawPluginAPI, scopeId: string): Pro
     stateDir: api.stateDir,
   };
 
-  const words = await vocab.ensureCached(ctx);
+  const targetLang = scope.config.targetLang ?? 'en';
+  const words = await vocab.ensureCached(ctx, targetLang);
   const snapshot = buildSnapshot(scope, wordRepo);
   const word = vocab.selectNextWord(snapshot, words);
   const lang = scope.config.nativeLang;
 
   if (!word) {
     await api.gateway.send(card.allDoneMessage(lang), scope.targetId);
-    scheduleScope(api, scope);
+    // 词库耗尽 → 1 小时后再试一次，而不是按窗口规则立刻重新调度造成刷屏
+    clearScopeTimer(scope.scopeId);
+    if (!scope.config.paused) {
+      const timer = setTimeout(() => {
+        triggerPushForScope(api, scope.scopeId).catch(() => {
+          clearScopeTimer(scope.scopeId);
+        });
+      }, scheduler.EXHAUSTED_BACKOFF_MS);
+      timers.set(scope.scopeId, timer);
+    }
     return;
   }
 
   const existing = snapshot.weights[word.id];
   const isReview = Boolean(existing);
   const reviewCount = existing?.reviews ?? 0;
-  const content = await generator.generateContent(api.agent, word, scope.level, lang);
+  const content = await generator.generateContent(api.agent, word, scope.level, lang, targetLang);
   const message = card.build(word, content, scope.scopeId, isReview, reviewCount, lang);
 
   await api.gateway.send(message, scope.targetId);

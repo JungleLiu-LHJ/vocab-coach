@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { nextWaitMs, isInActiveWindow, msUntilWindowStart } from '../src/scheduler.js';
+import { nextWaitMs, isInActiveWindow, msUntilWindowStart, EXHAUSTED_BACKOFF_MS } from '../src/scheduler.js';
 import type { ScopeConfig } from '../src/types.js';
 
 const BASE_CONFIG: ScopeConfig = {
@@ -9,6 +9,7 @@ const BASE_CONFIG: ScopeConfig = {
   dailyTarget: 5,
   vocabSource: 'ielts',
   nativeLang: 'zh',
+  targetLang: 'en',
   paused: false,
 };
 
@@ -41,6 +42,31 @@ describe('nextWaitMs', () => {
     const wide = nextWaitMs({ ...BASE_CONFIG, activeHoursStart: 8, activeHoursEnd: 22 });
     expect(wide).toBeGreaterThan(narrow);
     vi.restoreAllMocks();
+  });
+
+  it('clamps to MIN_WAIT_MS when Math.random returns near 1 (raw → 0)', () => {
+    // -log(1 - 1e-9) ≈ 1e-9, raw 趋近 0 ms — 必须被钳到最小值
+    vi.spyOn(Math, 'random').mockReturnValue(1 - 1e-9);
+    const wait = nextWaitMs(BASE_CONFIG);
+    expect(wait).toBeGreaterThanOrEqual(30_000);
+    vi.restoreAllMocks();
+  });
+
+  it('clamps to MAX_WAIT_MULT × meanInterval when Math.random returns near 0 (long tail)', () => {
+    // -log(very small) → very large；窗口 13h / dailyTarget 5 → meanInterval ≈ 156min
+    // 4× 上限 ≈ 624 min；任何超过该值的指数尾巴都应被截断
+    vi.spyOn(Math, 'random').mockReturnValue(1e-10);
+    const wait = nextWaitMs(BASE_CONFIG);
+    const windowMs = (22 - 9) * 3_600_000;
+    const meanInterval = windowMs / 5;
+    expect(wait).toBeLessThanOrEqual(4 * meanInterval);
+    vi.restoreAllMocks();
+  });
+});
+
+describe('EXHAUSTED_BACKOFF_MS', () => {
+  it('is 1 hour', () => {
+    expect(EXHAUSTED_BACKOFF_MS).toBe(60 * 60_000);
   });
 });
 

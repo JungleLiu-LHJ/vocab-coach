@@ -9,6 +9,23 @@ const CEFR_LABELS: Record<number, string> = {
   6: 'C2 (Proficient)',
 };
 
+const JLPT_LABELS: Record<number, string> = {
+  1: 'N5 (Beginner)',
+  2: 'N4 (Basic)',
+  3: 'N3 (Intermediate)',
+  4: 'N2 (Upper-Intermediate)',
+  5: 'N1 (Advanced)',
+};
+
+const HSK_LABELS: Record<number, string> = {
+  1: 'HSK 1 (Beginner)',
+  2: 'HSK 2 (Elementary)',
+  3: 'HSK 3 (Intermediate)',
+  4: 'HSK 4 (Upper-Intermediate)',
+  5: 'HSK 5 (Advanced)',
+  6: 'HSK 6 (Proficient)',
+};
+
 function cefrLabel(skillLevel: number): string {
   if (skillLevel <= 2) return CEFR_LABELS[1];
   if (skillLevel <= 4) return CEFR_LABELS[2];
@@ -16,6 +33,53 @@ function cefrLabel(skillLevel: number): string {
   if (skillLevel <= 8) return CEFR_LABELS[4];
   if (skillLevel === 9) return CEFR_LABELS[5];
   return CEFR_LABELS[6];
+}
+
+function jlptLabel(skillLevel: number): string {
+  if (skillLevel <= 2) return JLPT_LABELS[1];
+  if (skillLevel <= 4) return JLPT_LABELS[2];
+  if (skillLevel <= 6) return JLPT_LABELS[3];
+  if (skillLevel <= 8) return JLPT_LABELS[4];
+  return JLPT_LABELS[5];
+}
+
+function hskLabel(skillLevel: number): string {
+  if (skillLevel <= 2) return HSK_LABELS[1];
+  if (skillLevel <= 4) return HSK_LABELS[2];
+  if (skillLevel <= 6) return HSK_LABELS[3];
+  if (skillLevel <= 8) return HSK_LABELS[4];
+  if (skillLevel === 9) return HSK_LABELS[5];
+  return HSK_LABELS[6];
+}
+
+// 根据目标语言选择等级标签
+function levelLabel(targetLang: string, skillLevel: number): string {
+  const main = targetLang.split('-')[0];
+  if (main === 'ja') return jlptLabel(skillLevel);
+  if (main === 'zh') return hskLabel(skillLevel);
+  return cefrLabel(skillLevel);
+}
+
+// 不同目标语言的发音注释格式提示，用于让 LLM 输出对应类型的注音
+function pronunciationHint(targetLang: string): string {
+  const main = targetLang.split('-')[0];
+  switch (main) {
+    case 'ja':
+      return 'Hiragana reading followed by romaji in parentheses, e.g. "ありがとう (arigatō)"';
+    case 'zh':
+      return 'Pinyin with tone marks, e.g. "nǐ hǎo"';
+    case 'ko':
+      return 'Revised Romanization, e.g. "annyeonghaseyo"';
+    case 'fr':
+    case 'de':
+    case 'es':
+    case 'pt':
+    case 'ru':
+    case 'ar':
+      return 'IPA phonetic transcription in slashes with primary stress mark';
+    default:
+      return 'IPA phonetic transcription in slashes, e.g. "/ˈʌltɪmətəm/", with primary stress mark';
+  }
 }
 
 // BCP 47 语言标签 → 全称（用于 LLM 提示词）
@@ -80,27 +144,33 @@ export async function generateContent(
   word: VocabWord,
   userLevel: number,
   nativeLang: string = 'zh',
+  targetLang: string = 'en',
 ): Promise<GeneratedContent> {
   const native = langName(nativeLang);
+  const target = langName(targetLang);
   const defHint = word.def ? ` (${native} meaning: ${word.def})` : '';
   const glossExample = nativeLang === 'zh'
     ? '["accelerate (加速)", "momentum (动力)"]'
     : `["accelerate (speed up)", "momentum (driving force)"]`;
+  const englishDefHint = targetLang.startsWith('en')
+    ? 'Clear English definition, 1 concise sentence (like a dictionary entry).'
+    : `Clear English definition of the ${target} word, 1 concise sentence.`;
 
   const prompt = `You are a vocabulary flashcard generator. Output ONLY a single JSON object — no thinking, no explanation, no markdown fences.
 
 Word: "${word.w}"${defHint}
+Target language: ${target}
 User's native language: ${native}
-User CEFR level: ${cefrLabel(userLevel)}
+User level: ${levelLabel(targetLang, userLevel)}
 
 Required JSON fields:
 - "nativeDef": Clear definition in ${native}, 1-2 sentences.
-- "englishDef": Clear English definition, 1 concise sentence (like a dictionary entry).
-- "phonetic": IPA phonetic transcription in slashes, e.g. "/ˈʌltɪmətəm/". Include primary stress mark.
+- "englishDef": ${englishDefHint}
+- "phonetic": ${pronunciationHint(targetLang)}.
 - "partOfSpeech": Part of speech abbreviation, e.g. "n.", "v.", "adj.", "adv.", "n./v." if multiple.
-- "forms": Array of 2-4 related word forms with ${native} gloss, e.g. ${glossExample}. Include plural/verb forms/derived words.
-- "examples": Array of exactly 3 English sentences showing everyday or academic usage. IMPORTANT: Do NOT write news headlines, current events, or sentences mentioning specific years, analysts, reports, or recent events. Use timeless, natural contexts: personal life, school, work, nature, travel, etc.
-- "related": Array of 2-3 related English words, each with a short ${native} gloss, e.g. ${glossExample}.
+- "forms": Array of 2-4 related ${target} word forms with ${native} gloss, e.g. ${glossExample}. Include plural/verb forms/derived words where applicable.
+- "examples": Array of exactly 3 ${target} sentences showing everyday or academic usage. IMPORTANT: Do NOT write news headlines, current events, or sentences mentioning specific years, analysts, reports, or recent events. Use timeless, natural contexts: personal life, school, work, nature, travel, etc.
+- "related": Array of 2-3 related ${target} words, each with a short ${native} gloss, e.g. ${glossExample}.
 - "mnemonic": One vivid memory trick in ${native} using etymology or imagery, ≤20 words.
 
 Output format (strict — nothing before or after this object):

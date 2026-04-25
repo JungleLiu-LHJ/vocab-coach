@@ -1,10 +1,20 @@
 import type { ScopeConfig } from './types.js';
 
+// 指数分布尾部最大倍数 — 防止 Math.random() 接近 0 时产生几小时的等待
+const MAX_WAIT_MULT = 4;
+// 最小等待 — 防止 Math.random() 接近 1 时产生 0ms 的等待造成刷屏
+const MIN_WAIT_MS = 30_000;
+// 词库耗尽后的退避间隔（1 小时）
+export const EXHAUSTED_BACKOFF_MS = 60 * 60_000;
+
 export function nextWaitMs(config: ScopeConfig): number {
   const windowMs = Math.max(1, (config.activeHoursEnd - config.activeHoursStart) * 3_600_000);
-  const meanIntervalMs = windowMs / config.dailyTarget;
+  const dailyTarget = Math.max(1, config.dailyTarget);
+  const meanIntervalMs = windowMs / dailyTarget;
   // 指数分布（泊松到达时间间隔）
-  return -Math.log(Math.random()) * meanIntervalMs;
+  const raw = -Math.log(Math.random()) * meanIntervalMs;
+  // 钳制到 [MIN_WAIT_MS, MAX_WAIT_MULT * meanInterval]
+  return Math.min(MAX_WAIT_MULT * meanIntervalMs, Math.max(MIN_WAIT_MS, raw));
 }
 
 export function msUntilWindowStart(config: ScopeConfig): number {
