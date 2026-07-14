@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="本地优先、由 FSRS 驱动的轻量背单词工具" />
+    <title>Vocab Coach</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <button class="brand" data-view="study" aria-label="返回学习页">
+          <span class="brand-mark">V</span>
+          <span><strong>Vocab Coach</strong><small>本地记忆训练</small></span>
+        </button>
+        <nav aria-label="主导航">
+          <button class="nav-button active" data-view="study">学习</button>
+          <button class="nav-button" data-view="add">新增</button>
+          <button class="nav-button" data-view="import">导入</button>
+        </nav>
+      </header>
+
+      <main>
+        <section id="study-view" class="view active" aria-labelledby="study-title">
+          <div class="study-heading">
+            <div>
+              <p class="eyebrow">TODAY'S SESSION</p>
+              <h1 id="study-title">今天，记住一点。</h1>
+            </div>
+            <div class="stats" aria-label="今日统计">
+              <div><strong id="stat-reviews">0</strong><span>已复习</span></div>
+              <div><strong id="stat-due">0</strong><span>待复习</span></div>
+              <div><strong id="stat-new">0</strong><span>新单词</span></div>
+            </div>
+          </div>
+
+          <div id="study-empty" class="empty-state">
+            <div class="empty-orbit"><span>Aa</span></div>
+            <h2>准备好开始了吗？</h2>
+            <p>到期单词优先，新词会自动补足本次学习。</p>
+            <div class="session-start">
+              <label for="session-count">本次数量</label>
+              <input id="session-count" type="number" min="1" max="100" value="20" />
+              <button id="start-session" class="primary-button">开始学习</button>
+            </div>
+          </div>
+
+          <div id="study-session" class="session hidden">
+            <div class="session-progress">
+              <span id="session-progress-text">1 / 20</span>
+              <div class="progress-track"><span id="session-progress-bar"></span></div>
+              <button id="end-session" class="text-button">结束本次</button>
+            </div>
+            <article id="flashcard" class="flashcard" aria-live="polite">
+              <div class="card-meta">
+                <span id="card-kind" class="pill">新词</span>
+                <span id="card-memory"></span>
+              </div>
+              <h2 id="card-word"></h2>
+              <p id="card-phonetics" class="origin"></p>
+              <p id="card-origin" class="origin"></p>
+              <div id="card-translation-block" class="translation-block">
+                <span>中文释义</span>
+                <p id="card-translation"></p>
+              </div>
+              <ol id="card-examples" class="examples"></ol>
+            </article>
+            <div id="rating-buttons" class="ratings" aria-label="记忆评分">
+              <button data-grade="again" class="rating again"><kbd>1</kbd><strong>Again</strong><span>忘了</span></button>
+              <button data-grade="hard" class="rating hard"><kbd>2</kbd><strong>Hard</strong><span>模糊</span></button>
+              <button data-grade="good" class="rating good"><kbd>3</kbd><strong>Good</strong><span>想起来了</span></button>
+              <button data-grade="easy" class="rating easy"><kbd>4</kbd><strong>Easy</strong><span>很容易</span></button>
+            </div>
+            <div id="new-rating-buttons" class="ratings new-ratings hidden" aria-label="新单词认识程度">
+              <button data-grade="again" class="rating again"><kbd>1</kbd><strong>不认识</strong><span>很快再出现</span></button>
+              <button data-grade="easy" class="rating easy"><kbd>2</kbd><strong>认识</strong><span>晚点再出现</span></button>
+            </div>
+            <article id="feedback-card" class="flashcard feedback hidden" aria-live="polite">
+              <span class="pill danger">再次认识一下</span>
+              <h2 id="feedback-word"></h2>
+              <p id="feedback-translation"></p>
+              <button id="feedback-next" class="primary-button">下一张</button>
+            </article>
+          </div>
+        </section>
+
+        <section id="add-view" class="view" aria-labelledby="add-title">
+          <div class="page-heading">
+            <p class="eyebrow">BUILD YOUR DECK</p>
+            <h1 id="add-title">添加一个值得记住的词。</h1>
+            <p>完整填写，或只输入一部分让模型补齐。模型结果会先回到表单供你确认。</p>
+          </div>
+          <form id="vocab-form" class="form-card">
+            <div class="field full">
+              <label for="word">单词 <span>必填</span></label>
+              <input id="word" name="word" required maxlength="255" placeholder="serendipity" autocomplete="off" />
+            </div>
+            <div class="field">
+              <label for="translation">中文释义</label>
+              <textarea id="translation" name="translation" rows="4" placeholder="意外发现美好事物的机缘"></textarea>
+            </div>
+            <div class="field">
+              <label for="origin-translation">英文释义</label>
+              <textarea id="origin-translation" name="origin_translation" rows="4" placeholder="The pleasant discovery of something valuable by chance."></textarea>
+            </div>
+            <div class="field">
+              <label for="phonetic-us">美式音标 <span>IPA</span></label>
+              <input id="phonetic-us" name="phonetic_us" maxlength="100" placeholder="/ˌserənˈdɪpəti/" />
+            </div>
+            <div class="field">
+              <label for="phonetic-uk">英式音标 <span>IPA</span></label>
+              <input id="phonetic-uk" name="phonetic_uk" maxlength="100" placeholder="/ˌserənˈdɪpəti/" />
+            </div>
+            <div class="field full">
+              <label for="examples">例句 <span>每行：英文 || 中文，自动补全目标为 10 句</span></label>
+              <textarea id="examples" name="examples" rows="9" placeholder="Finding that quiet café was pure serendipity. || 偶然发现那家安静的咖啡馆真是意外之喜。"></textarea>
+            </div>
+            <div class="form-actions full">
+              <button id="enrich-vocab" type="button" class="secondary-button">自动补全缺失内容</button>
+              <button type="submit" class="primary-button">确认保存</button>
+            </div>
+            <p id="vocab-form-message" class="form-message full" role="status"></p>
+          </form>
+        </section>
+
+        <section id="import-view" class="view" aria-labelledby="import-title">
+          <div class="page-heading">
+            <p class="eyebrow">BULK IMPORT</p>
+            <h1 id="import-title">一次带进整组单词。</h1>
+            <p>接受 UTF-8 编码的 JSON 或 CSV。导入会先完整校验，有任何错误都不会写入数据库。</p>
+          </div>
+          <div class="import-grid">
+            <form id="import-form" class="form-card compact">
+              <label class="drop-zone" for="import-file">
+                <span class="upload-icon">↑</span>
+                <strong>选择 CSV 或 JSON 文件</strong>
+                <small id="file-name">最大 10 MB</small>
+                <input id="import-file" name="file" type="file" accept=".csv,.json,application/json,text/csv" required />
+              </label>
+              <button type="submit" class="primary-button">校验并导入</button>
+              <p id="import-message" class="form-message" role="status"></p>
+            </form>
+            <aside class="format-help">
+              <h2>文件格式</h2>
+              <p>JSON 根节点是对象数组，每条例句包含英文和中文翻译。</p>
+              <pre><code>[
+  {
+    "word": "serendipity",
+    "translation": "意外的美好发现",
+    "origin_translation": "A pleasant chance discovery.",
+    "phonetic_us": "/ˌserənˈdɪpəti/",
+    "phonetic_uk": "/ˌserənˈdɪpəti/",
+    "examples": [
+      {"sentence": "It was pure serendipity.", "translation": "这纯属意外之喜。"}
+    ]
+  }
+]</code></pre>
+              <p>CSV 使用六列，其中 <code>examples</code> 单元格填写同样的 JSON 对象数组。</p>
+            </aside>
+          </div>
+        </section>
+      </main>
+    </div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>
