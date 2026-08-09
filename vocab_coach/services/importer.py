@@ -1,6 +1,7 @@
 import csv
 import io
 import json
+from dataclasses import dataclass
 
 from pydantic import ValidationError
 from sqlalchemy import select
@@ -16,6 +17,12 @@ class ImportValidationError(ValueError):
     def __init__(self, errors: list[dict]):
         self.errors = errors
         super().__init__("Import validation failed")
+
+
+@dataclass(frozen=True)
+class ImportResult:
+    cards: list[VocabularyOut]
+    skipped_existing: list[str]
 
 
 def _load_rows(filename: str, content: bytes) -> list[dict]:
@@ -46,7 +53,13 @@ def _load_rows(filename: str, content: bytes) -> list[dict]:
     raise ImportValidationError([{"row": 0, "message": "Only .csv and .json files are supported"}])
 
 
-def validate_and_import(db: Session, filename: str, content: bytes) -> list[VocabularyOut]:
+def validate_and_import_with_report(
+    db: Session,
+    filename: str,
+    content: bytes,
+    *,
+    skip_existing: bool = False,
+) -> ImportResult:
     rows = _load_rows(filename, content)
     if not rows:
         raise ImportValidationError([{"row": 0, "message": "Import file is empty"}])
@@ -75,13 +88,26 @@ def validate_and_import(db: Session, filename: str, content: bytes) -> list[Voca
             seen[normalized] = index
             payloads.append(payload)
 
+    skipped_existing: list[str] = []
     if seen:
         existing = set(
             db.scalars(select(VocabCard.normalized_word).where(VocabCard.normalized_word.in_(seen))).all()
         )
         for word in existing:
-            errors.append({"row": seen[word], "message": "Word already exists in the database"})
+            if skip_existing:
+                skipped_existing.append(word)
+            else:
+                errors.append({"row": seen[word], "message": "Word already exists in the database"})
     if errors:
         raise ImportValidationError(errors)
-    return create_many_vocabulary(db, payloads)
+    if skipped_existing:
+        skipped = set(skipped_existing)
+        payloads = [payload for payload in payloads if normalize_word(payload.word) not in skipped]
+    return ImportResult(
+        cards=create_many_vocabulary(db, payloads) if payloads else [],
+        skipped_existing=sorted(skipped_existing),
+    )
 
+
+def validate_and_import(db: Session, filename: str, content: bytes) -> list[VocabularyOut]:
+    return validate_and_import_with_report(db, filename, content).cards

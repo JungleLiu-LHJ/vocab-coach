@@ -27,7 +27,12 @@ from vocab_coach.services.enrichment import (
 from vocab_coach.services.details import get_vocabulary_detail
 from vocab_coach.services.importer import ImportValidationError, validate_and_import
 from vocab_coach.services.stats import get_today_stats
-from vocab_coach.services.study import fetch_session_cards, review_card
+from vocab_coach.services.study import (
+    ReviewRequestConflictError,
+    StaleReviewError,
+    fetch_session_cards,
+    review_card,
+)
 from vocab_coach.services.vocabulary import (
     DuplicateWordError,
     create_vocabulary,
@@ -55,9 +60,17 @@ def session_cards(
 @router.post("/cards/{card_id}/reviews", response_model=ReviewResponse)
 def submit_review(card_id: str, payload: ReviewRequest, db: DbSession) -> ReviewResponse:
     try:
-        return review_card(db, card_id, payload.grade)
+        return review_card(
+            db,
+            card_id,
+            payload.grade,
+            request_id=payload.request_id,
+            expected_review_count=payload.expected_review_count,
+        )
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except (StaleReviewError, ReviewRequestConflictError) as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
 
 @router.post("/vocabulary/enrich", response_model=VocabularyDraft)

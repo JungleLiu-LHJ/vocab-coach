@@ -124,6 +124,7 @@ class SessionCard(BaseModel):
     phonetic_uk: str | None = None
     examples: list[ExampleSentence]
     retrievability: float | None = None
+    review_count: int = 0
 
 
 class SessionCardsResponse(BaseModel):
@@ -133,6 +134,8 @@ class SessionCardsResponse(BaseModel):
 
 class ReviewRequest(BaseModel):
     grade: Grade
+    request_id: str | None = Field(default=None, min_length=1, max_length=64)
+    expected_review_count: int | None = Field(default=None, ge=0)
 
 
 class FeedbackCard(BaseModel):
@@ -142,6 +145,13 @@ class FeedbackCard(BaseModel):
     translation: str
 
 
+class RevealedAnswer(BaseModel):
+    card_id: str
+    word: str
+    translation: str
+    examples: list[ExampleSentence]
+
+
 class ReviewResponse(BaseModel):
     card_id: str
     grade: Grade
@@ -149,6 +159,7 @@ class ReviewResponse(BaseModel):
     retrievability: float
     status: str
     feedback_card: FeedbackCard | None = None
+    revealed_answer: RevealedAnswer
 
 
 class ImportResponse(BaseModel):

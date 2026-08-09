@@ -71,6 +71,7 @@ class Review(Base):
     )
     word: Mapped[str] = mapped_column(String(255), nullable=False)
     grade: Mapped[str] = mapped_column(String(16), nullable=False)
+    request_id: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
     reviewed_at: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
     retrievability_before: Mapped[float | None] = mapped_column(Float)
     retrievability_after: Mapped[float | None] = mapped_column(Float)

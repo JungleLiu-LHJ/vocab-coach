@@ -70,3 +70,30 @@ def test_csv_import_with_json_examples(client):
     )
     assert response.status_code == 201, response.text
     assert response.json()["imported_count"] == 1
+
+
+def test_review_api_is_idempotent_and_versioned(client):
+    created = client.post("/api/vocabulary", json=VALID_CARD).json()
+    payload = {
+        "grade": "good",
+        "request_id": "api-review-request",
+        "expected_review_count": 0,
+    }
+
+    first = client.post(f'/api/cards/{created["id"]}/reviews', json=payload)
+    repeated = client.post(f'/api/cards/{created["id"]}/reviews', json=payload)
+    stale = client.post(
+        f'/api/cards/{created["id"]}/reviews',
+        json={
+            "grade": "hard",
+            "request_id": "api-stale-request",
+            "expected_review_count": 0,
+        },
+    )
+
+    assert first.status_code == 200
+    assert repeated.json() == first.json()
+    assert first.json()["revealed_answer"]["translation"] == VALID_CARD["translation"]
+    assert stale.status_code == 409
+    detail = client.get("/api/vocabulary/lookup?word=serendipity").json()
+    assert len(detail["reviews"]) == 1

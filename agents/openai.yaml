@@ -1,0 +1,4 @@
+interface:
+  display_name: "Vocab Coach"
+  short_description: "Import vocabulary and run FSRS reviews through agents"
+  default_prompt: "Use $vocab-coach to import a vocabulary list or start a review session."

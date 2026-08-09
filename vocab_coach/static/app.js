@@ -111,12 +111,21 @@ async function submitRating(grade) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ grade }),
     });
-    if (result.feedback_card) {
+    if (card.kind === "review") {
       $("#flashcard").classList.add("hidden");
       $("#rating-buttons").classList.add("hidden");
       $("#new-rating-buttons").classList.add("hidden");
-      $("#feedback-word").textContent = result.feedback_card.word;
-      $("#feedback-translation").textContent = result.feedback_card.translation;
+      $("#feedback-word").textContent = result.revealed_answer.word;
+      $("#feedback-translation").textContent = result.revealed_answer.translation;
+      $("#feedback-examples").replaceChildren(...result.revealed_answer.examples.map((example) => {
+        const item = document.createElement("li");
+        const sentence = document.createElement("span");
+        sentence.textContent = example.sentence;
+        const translation = document.createElement("small");
+        translation.textContent = example.translation;
+        item.append(sentence, translation);
+        return item;
+      }));
       $("#feedback-card").classList.remove("hidden");
     } else {
       nextCard();
@@ -152,8 +161,8 @@ document.addEventListener("keydown", (event) => {
   if ($("#study-session").classList.contains("hidden") || !$("#feedback-card").classList.contains("hidden")) return;
   const currentCard = state.cards[state.index];
   const grades = currentCard?.kind === "new"
-    ? { "1": "again", "2": "easy" }
-    : { "1": "again", "2": "hard", "3": "good", "4": "easy" };
+    ? { "1": "easy", "2": "again" }
+    : { "1": "easy", "2": "good", "3": "hard", "4": "again" };
   if (grades[event.key]) submitRating(grades[event.key]);
 });
 

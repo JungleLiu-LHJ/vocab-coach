@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from vocab_coach import __version__
 from vocab_coach.api import router
 from vocab_coach.config import Settings, get_settings
 from vocab_coach.database import configure_database, get_session_factory, migrate_database
@@ -29,7 +30,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     application = FastAPI(
         title="Vocab Coach",
-        version="0.1.0",
+        version=__version__,
         description="Local-first FSRS vocabulary learning",
         lifespan=lifespan,
     )

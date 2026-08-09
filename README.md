@@ -69,6 +69,36 @@ CSV 支持 `word,translation,origin_translation,phonetic_us,phonetic_uk,examples
 - `GET /api/stats/today`：获取今日统计。
 - `/docs`：交互式 OpenAPI 文档。
 
+## Agent 与命令行
+
+仓库根目录的 `SKILL.md` 可供 Hermes、OpenClaw 和其他兼容 Agent Skills 的客户端读取。
+Skill 会让 Agent 使用自身的网页、渠道和定时能力，Vocab Coach 只保存词汇并执行 FSRS。
+
+结构化 CLI 直接复用业务服务，不要求 Web 服务常驻：
+
+```bash
+uv run vocab-coach doctor
+uv run vocab-coach import --format json < words.json
+uv run vocab-coach cards --count 1 --channel wechat
+uv run vocab-coach review CARD_ID good \
+  --request-id 550e8400-e29b-41d4-a716-446655440000 \
+  --expected-review-count 3 \
+  --channel wechat
+uv run vocab-coach stats --timezone-offset-minutes -480
+```
+
+新词会显示完整双语内容并使用“认识/不认识”两档；复习词在评分前不会返回主中文释义
+或例句翻译，评分成功后通过 `revealed_answer` 返回答案。请求 ID 和 `review_count` 用于
+阻止网络重试、旧按钮或跨渠道迟到消息造成重复评分。
+
+macOS/Linux 自动安装：
+
+```bash
+git clone https://github.com/JungleLiu-LHJ/vocab-coach.git
+cd vocab-coach
+./scripts/install.sh
+```
+
 ## 测试
 
 ```bash

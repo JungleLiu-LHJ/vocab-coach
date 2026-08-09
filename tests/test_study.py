@@ -1,11 +1,17 @@
 from datetime import datetime, timedelta, timezone
 
+import pytest
 from fsrs import Card
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from vocab_coach.models import FsrsState, Review, VocabCard
 from vocab_coach.schemas import VocabularyCreate
-from vocab_coach.services.study import fetch_session_cards, review_card, status_for_stability
+from vocab_coach.services.study import (
+    StaleReviewError,
+    fetch_session_cards,
+    review_card,
+    status_for_stability,
+)
 from vocab_coach.services.vocabulary import create_vocabulary
 
 
@@ -109,3 +115,86 @@ def test_known_new_word_is_scheduled_later_than_unknown_word(db):
     unknown_result = review_card(db, unknown.id, "again", now=now, enable_fuzzing=False)
 
     assert known_result.next_due_at > unknown_result.next_due_at
+
+
+def test_review_front_hides_chinese_and_response_reveals_it(db):
+    vocab = make_vocab(db, "concealed", 1)
+    now = datetime(2026, 7, 13, 8, tzinfo=timezone.utc)
+    make_due_state(db, vocab, now - timedelta(days=1))
+
+    front = fetch_session_cards(db, 1, now=now).cards[0]
+
+    assert front.kind == "review"
+    assert front.translation is None
+    assert front.review_count == 1
+    assert front.examples[0].translation == ""
+
+    result = review_card(
+        db,
+        vocab.id,
+        "good",
+        now=now,
+        enable_fuzzing=False,
+        request_id="reveal-once",
+        expected_review_count=1,
+    )
+    assert result.revealed_answer.translation == "concealed 中文"
+    assert result.revealed_answer.examples[0].translation == "这个句子包含 concealed。"
+
+
+def test_review_request_is_idempotent_and_rejects_stale_version(db):
+    vocab = make_vocab(db, "idempotent", 1)
+    now = datetime(2026, 7, 13, 8, tzinfo=timezone.utc)
+
+    first = review_card(
+        db,
+        vocab.id,
+        "easy",
+        now=now,
+        enable_fuzzing=False,
+        request_id="same-request",
+        expected_review_count=0,
+    )
+    repeated = review_card(
+        db,
+        vocab.id,
+        "easy",
+        now=now,
+        enable_fuzzing=False,
+        request_id="same-request",
+        expected_review_count=0,
+    )
+
+    assert repeated == first
+    assert db.scalar(select(func.count(Review.id))) == 1
+
+    with pytest.raises(StaleReviewError):
+        review_card(
+            db,
+            vocab.id,
+            "good",
+            now=now,
+            enable_fuzzing=False,
+            request_id="stale-request",
+            expected_review_count=0,
+        )
+
+
+@pytest.mark.parametrize("grade", ["easy", "good", "hard", "again"])
+def test_all_agent_grades_use_fsrs_and_reveal_answer(db, grade):
+    vocab = make_vocab(db, f"grade-{grade}", 1)
+    now = datetime(2026, 7, 13, 8, tzinfo=timezone.utc)
+
+    result = review_card(
+        db,
+        vocab.id,
+        grade,
+        now=now,
+        enable_fuzzing=False,
+        request_id=f"request-{grade}",
+        expected_review_count=0,
+    )
+
+    assert result.grade == grade
+    assert result.revealed_answer.translation == f"grade-{grade} 中文"
+    assert db.get(FsrsState, vocab.id).review_count == 1

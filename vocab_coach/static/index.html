@@ -67,19 +67,20 @@
               <ol id="card-examples" class="examples"></ol>
             </article>
             <div id="rating-buttons" class="ratings" aria-label="记忆评分">
-              <button data-grade="again" class="rating again"><kbd>1</kbd><strong>Again</strong><span>忘了</span></button>
-              <button data-grade="hard" class="rating hard"><kbd>2</kbd><strong>Hard</strong><span>模糊</span></button>
-              <button data-grade="good" class="rating good"><kbd>3</kbd><strong>Good</strong><span>想起来了</span></button>
-              <button data-grade="easy" class="rating easy"><kbd>4</kbd><strong>Easy</strong><span>很容易</span></button>
+              <button data-grade="easy" class="rating easy"><kbd>1</kbd><strong>Easy</strong><span>很容易</span></button>
+              <button data-grade="good" class="rating good"><kbd>2</kbd><strong>Good</strong><span>想起来了</span></button>
+              <button data-grade="hard" class="rating hard"><kbd>3</kbd><strong>Hard</strong><span>模糊</span></button>
+              <button data-grade="again" class="rating again"><kbd>4</kbd><strong>Again</strong><span>忘了</span></button>
             </div>
             <div id="new-rating-buttons" class="ratings new-ratings hidden" aria-label="新单词认识程度">
-              <button data-grade="again" class="rating again"><kbd>1</kbd><strong>不认识</strong><span>很快再出现</span></button>
-              <button data-grade="easy" class="rating easy"><kbd>2</kbd><strong>认识</strong><span>晚点再出现</span></button>
+              <button data-grade="easy" class="rating easy"><kbd>1</kbd><strong>认识</strong><span>晚点再出现</span></button>
+              <button data-grade="again" class="rating again"><kbd>2</kbd><strong>不认识</strong><span>很快再出现</span></button>
             </div>
             <article id="feedback-card" class="flashcard feedback hidden" aria-live="polite">
-              <span class="pill danger">再次认识一下</span>
+              <span class="pill">答案</span>
               <h2 id="feedback-word"></h2>
               <p id="feedback-translation"></p>
+              <ol id="feedback-examples" class="examples"></ol>
               <button id="feedback-next" class="primary-button">下一张</button>
             </article>
           </div>

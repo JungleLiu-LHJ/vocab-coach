@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from vocab_coach.models import FsrsState, Review, VocabCard
 from vocab_coach.schemas import (
     FeedbackCard,
+    RevealedAnswer,
     ReviewResponse,
     SessionCard,
     SessionCardsResponse,
@@ -18,6 +19,14 @@ from vocab_coach.services.scheduler import RATING_BY_GRADE, build_scheduler, get
 
 
 SEVEN_DAYS_SECONDS = 7 * 24 * 60 * 60
+
+
+class StaleReviewError(ValueError):
+    pass
+
+
+class ReviewRequestConflictError(ValueError):
+    pass
 
 
 def status_for_stability(stability: float | None) -> str:
@@ -37,6 +46,7 @@ def _render_card(db: Session, vocab: VocabCard, state: FsrsState | None, now: da
             phonetic_us=vocab.phonetic_us,
             phonetic_uk=vocab.phonetic_uk,
             examples=selected_examples,
+            review_count=0,
         )
 
     config = get_active_config(db)
@@ -50,8 +60,11 @@ def _render_card(db: Session, vocab: VocabCard, state: FsrsState | None, now: da
         origin_translation=vocab.origin_translation,
         phonetic_us=vocab.phonetic_us,
         phonetic_uk=vocab.phonetic_uk,
-        examples=selected_examples,
+        examples=[
+            example.model_copy(update={"translation": ""}) for example in selected_examples
+        ],
         retrievability=retrievability,
+        review_count=state.review_count,
     )
 
 
@@ -104,6 +117,8 @@ def review_card(
     *,
     now: datetime | None = None,
     enable_fuzzing: bool = True,
+    request_id: str | None = None,
+    expected_review_count: int | None = None,
 ) -> ReviewResponse:
     now = now or utc_now()
     now = now.astimezone(timezone.utc)
@@ -112,7 +127,21 @@ def review_card(
     if vocab is None:
         raise LookupError("Vocabulary card not found")
 
+    if request_id is not None:
+        previous = db.scalar(select(Review).where(Review.request_id == request_id))
+        if previous is not None:
+            if previous.card_id != card_id or previous.grade != grade:
+                raise ReviewRequestConflictError(
+                    "request_id was already used for a different review"
+                )
+            return _response_from_review(vocab, previous)
+
     state = db.get(FsrsState, card_id)
+    current_review_count = state.review_count if state is not None else 0
+    if expected_review_count is not None and expected_review_count != current_review_count:
+        raise StaleReviewError(
+            f"Card review_count is {current_review_count}, expected {expected_review_count}"
+        )
     was_new = state is None
     config = get_active_config(db)
     scheduler = build_scheduler(config, enable_fuzzing=enable_fuzzing)
@@ -152,27 +181,27 @@ def review_card(
 
     vocab.status = status_for_stability(updated_card.stability)
     vocab.updated_at = now_ts
-    db.add(
-        Review(
-            card_id=card_id,
-            word=vocab.word,
-            grade=grade,
-            reviewed_at=now_ts,
-            retrievability_before=retrievability_before,
-            retrievability_after=retrievability_after,
-            stability_before=stability_before,
-            stability_after=updated_card.stability,
-            difficulty_before=difficulty_before,
-            difficulty_after=updated_card.difficulty,
-            due_at_before=due_at_before,
-            due_at_after=due_at_after,
-            elapsed_days=elapsed_days,
-            scheduled_days=scheduled_days,
-            fsrs_config_id=config.id,
-            was_new=was_new,
-            created_at=now_ts,
-        )
+    review = Review(
+        card_id=card_id,
+        word=vocab.word,
+        grade=grade,
+        request_id=request_id,
+        reviewed_at=now_ts,
+        retrievability_before=retrievability_before,
+        retrievability_after=retrievability_after,
+        stability_before=stability_before,
+        stability_after=updated_card.stability,
+        difficulty_before=difficulty_before,
+        difficulty_after=updated_card.difficulty,
+        due_at_before=due_at_before,
+        due_at_after=due_at_after,
+        elapsed_days=elapsed_days,
+        scheduled_days=scheduled_days,
+        fsrs_config_id=config.id,
+        was_new=was_new,
+        created_at=now_ts,
     )
+    db.add(review)
 
     try:
         db.commit()
@@ -180,14 +209,28 @@ def review_card(
         db.rollback()
         raise
 
+    return _response_from_review(vocab, review)
+
+
+def _response_from_review(vocab: VocabCard, review: Review) -> ReviewResponse:
     feedback = None
-    if grade == "again":
-        feedback = FeedbackCard(card_id=card_id, word=vocab.word, translation=vocab.translation)
+    if review.grade == "again":
+        feedback = FeedbackCard(
+            card_id=vocab.id,
+            word=vocab.word,
+            translation=vocab.translation,
+        )
     return ReviewResponse(
-        card_id=card_id,
-        grade=grade,
-        next_due_at=from_timestamp(due_at_after),
-        retrievability=retrievability_after,
-        status=vocab.status,
+        card_id=vocab.id,
+        grade=review.grade,
+        next_due_at=from_timestamp(review.due_at_after),
+        retrievability=review.retrievability_after or 0.0,
+        status=status_for_stability(review.stability_after),
         feedback_card=feedback,
+        revealed_answer=RevealedAnswer(
+            card_id=vocab.id,
+            word=vocab.word,
+            translation=vocab.translation,
+            examples=examples_from_json(vocab.examples_json),
+        ),
     )
