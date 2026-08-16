@@ -1,5 +1,7 @@
 # Vocab Coach
 
+[中文](README.md) | [English](README.en.md)
+
 Vocab Coach 是一个本地优先、由 FSRS 6 驱动的轻量背单词项目。它只处理词汇录入、学习、
 复习、查询和必要统计；数据默认保存在本机 SQLite 中，没有网络或 LLM 配置时也能完成核心
 背词流程。
@@ -16,6 +18,30 @@ Agent 通过 MCP 调用同一套业务服务，Telegram、WhatsApp、微信、�
 - `request_id + review_count` 防止网络重试、旧按钮和迟到消息重复评分。
 - SQLite、本地 Web 和 CLI 不依赖 LLM。
 - MCP 返回平台无关的展示数据；渠道支持按钮/卡片时用原生交互，否则使用编号文字。
+
+## 背词逻辑
+
+一次完整的学习流程是：
+
+1. **录入词汇**：手动添加或批量导入单词、中文释义、英文释义、英美音标和双语例句；也可以选择让 LLM 补全缺失内容。
+2. **生成学习队列**：每次开始学习时，系统先取已经到期的复习词，再用新词补足本次设定的数量。最近 7 天内到期的词优先，之后是逾期更久的词，最后才是尚未学习的新词。
+3. **学习新词**：新词会直接显示完整释义、音标和例句，只需选择 `Easy`（认识）或 `Again`（不认识）。第一次评分后，系统为它创建 FSRS 状态。
+4. **回忆复习词**：复习卡正面隐藏中文释义和例句翻译，只展示单词、音标、英文释义和英文例句。根据自己的回忆情况选择 `Easy`、`Good`、`Hard` 或 `Again`，提交后再显示完整答案。
+5. **安排下次复习**：评分交给 FSRS 6，更新卡片的难度、稳定性、记住概率和下次到期时间，同时保存复习记录。下一次生成队列时，到期卡片会重新出现。
+
+同一个评分请求通过 `request_id` 保证幂等，并用 `review_count` 拒绝过期操作，避免网络重试、旧按钮或迟到消息让一张卡被重复评分。卡片稳定性超过 90 天时，界面将其标记为 `mature`；这只是展示状态，实际复习时间仍完全由 FSRS 决定。
+
+## 调度算法：FSRS 6
+
+[FSRS（Free Spaced Repetition Scheduler）](https://github.com/open-spaced-repetition/free-spaced-repetition-scheduler) 是本项目唯一的间隔重复算法。它不会使用固定的“第 1、3、7、14 天”规则，而是为每张卡维护独立记忆状态，主要包括：
+
+- **Difficulty（难度）**：这张卡对学习者有多难。
+- **Stability（稳定性）**：记忆保持到约 90% 可回忆概率所需的时间尺度。
+- **Retrievability（可提取性）**：当前还能想起这张卡的估计概率，会随时间下降。
+
+每次评分都会改变这些状态：通常 `Again` 会让卡片更快再次出现，`Hard` 给出较短间隔，`Good` 使用正常间隔，`Easy` 给出更长间隔。具体间隔由 FSRS 根据这张卡的历史状态、距离上次复习的时间和当前配置计算，并可加入少量模糊化以避免大量卡片集中在同一天。
+
+项目直接使用 `fsrs` Python 包的 FSRS 6 实现。默认参数、目标记忆率、学习步骤和最大间隔会在首次启动时写入 `fsrs_configs`；卡片状态保存在 `fsrs_states`，每次评分的前后状态保存在 `reviews`。网页、CLI、HTTP API 和 MCP 都调用同一套 `vocab_coach/services/` 业务逻辑，不会各自计算另一套复习计划。
 
 ## Hermes / OpenClaw 一键接入
 
@@ -92,18 +118,33 @@ token、联系人、群组或定时任务。
 `presentation.fallback_text`。完整工具参数和错误恢复规则位于
 [Skill 工具协议](skill/vocab-coach/references/tools.md)。
 
-## 启动网页
+## 本地运行
 
 需要 Python 3.12–3.14 和 [uv](https://docs.astral.sh/uv/)：
 
 ```bash
+git clone https://github.com/JungleLiu-LHJ/vocab-coach.git
+cd vocab-coach
 uv sync
 cp .env.example .env
-uv run uvicorn vocab_coach.main:app --host 127.0.0.1 --port 8000
+uv run vocab-coach serve
 ```
 
 打开 <http://127.0.0.1:8000>。默认数据库为 `data/vocab.db`，首次启动自动执行 Alembic
 migration 并创建默认 FSRS 配置。
+
+也可以直接用 Uvicorn 启动并覆盖监听地址：
+
+```bash
+uv run uvicorn vocab_coach.main:app --host 0.0.0.0 --port 8000
+```
+
+如需使用 MCP Server 或 Agent 集成功能，请安装可选依赖：
+
+```bash
+uv sync --extra agent
+uv run vocab-coach-mcp
+```
 
 ## 批量导入
 
