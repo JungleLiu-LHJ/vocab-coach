@@ -2,6 +2,7 @@
 set -eu
 
 REPOSITORY_URL=${VOCAB_COACH_REPOSITORY_URL:-https://github.com/JungleLiu-LHJ/vocab-coach.git}
+REPOSITORY_REF=${VOCAB_COACH_REPOSITORY_REF:-main}
 ROOT_DIR=${VOCAB_COACH_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/vocab-coach}
 APP_DIR=$ROOT_DIR/app
 DATA_DIR=$ROOT_DIR/data
@@ -34,14 +35,14 @@ if [ ! -d "$APP_DIR/.git" ]; then
     echo "Install target exists but is not a Git checkout: $APP_DIR" >&2
     exit 1
   fi
-  git clone --branch main --depth 1 "$REPOSITORY_URL" "$APP_DIR"
+  git clone --branch "$REPOSITORY_REF" --depth 1 "$REPOSITORY_URL" "$APP_DIR"
 elif [ "$UPDATE" = true ]; then
   if [ -n "$(git -C "$APP_DIR" status --porcelain)" ]; then
     echo "Refusing to update a checkout with local changes: $APP_DIR" >&2
     exit 1
   fi
-  git -C "$APP_DIR" fetch origin main
-  git -C "$APP_DIR" merge --ff-only origin/main
+  git -C "$APP_DIR" fetch origin "$REPOSITORY_REF"
+  git -C "$APP_DIR" merge --ff-only "origin/$REPOSITORY_REF"
 fi
 
 DB_PATH=$DATA_DIR/vocab.db

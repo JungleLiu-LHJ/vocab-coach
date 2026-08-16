@@ -36,14 +36,18 @@ def test_channel_cards_apply_visibility_and_choice_rules():
         "hard",
         "again",
     ]
-    assert [choice.grade for choice in whatsapp_card.choices] == ["easy", "good", "again"]
-    assert whatsapp_card.choices[1].label == "2/3 记得"
+    assert [choice.grade for choice in whatsapp_card.choices] == [
+        "easy",
+        "good",
+        "hard",
+        "again",
+    ]
 
 
 def test_rating_parser_handles_channel_numbers_and_text():
     assert parse_rating("１", card_kind="review", channel="wechat") == "easy"
     assert parse_rating("三", card_kind="review", channel="telegram") == "hard"
-    assert parse_rating("3", card_kind="review", channel="whatsapp") == "good"
+    assert parse_rating("3", card_kind="review", channel="whatsapp") == "hard"
     assert parse_rating("忘了", card_kind="review", channel="wechat") == "again"
     assert parse_rating("2", card_kind="new", channel="telegram") == "again"
     assert parse_rating("hard", card_kind="new", channel="telegram") is None

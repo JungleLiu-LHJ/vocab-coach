@@ -16,6 +16,11 @@ dependencies = [
   "uvicorn[standard]>=0.35,<1",
 ]
 
+[project.optional-dependencies]
+agent = [
+  "mcp>=1.12,<2",
+]
+
 [dependency-groups]
 dev = [
   "httpx>=0.28,<1",
@@ -29,6 +34,7 @@ build-backend = "hatchling.build"
 
 [project.scripts]
 vocab-coach = "vocab_coach.cli:main"
+vocab-coach-mcp = "vocab_coach.mcp_server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["vocab_coach"]

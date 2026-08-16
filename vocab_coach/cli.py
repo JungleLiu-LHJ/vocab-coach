@@ -11,7 +11,11 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from vocab_coach import __version__
-from vocab_coach.adapters.chat import render_answer, render_card
+from vocab_coach.adapters.chat import (
+    render_agent_answer,
+    render_agent_card,
+    render_answer,
+)
 from vocab_coach.config import Settings
 from vocab_coach.database import (
     configure_database,
@@ -160,9 +164,8 @@ def main() -> None:
                 payload = result.model_dump(mode="json")
                 if args.channel:
                     payload["rendered"] = [
-                        render_card(
+                        render_agent_card(
                             card,
-                            channel=args.channel,
                             position=index,
                             total=len(result.cards),
                         ).model_dump(mode="json")
@@ -179,6 +182,10 @@ def main() -> None:
                 )
                 payload = result.model_dump(mode="json")
                 if args.channel:
+                    payload["presentation"] = render_agent_answer(
+                        result.revealed_answer,
+                    ).model_dump(mode="json")
+                    # Keep the v0.2 string field for existing shell integrations.
                     payload["rendered_answer"] = render_answer(
                         result.revealed_answer,
                         channel=args.channel,

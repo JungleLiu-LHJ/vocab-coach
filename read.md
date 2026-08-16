@@ -57,4 +57,26 @@ uv run pytest
 uv run alembic upgrade head
 ```
 
+## Hermes / OpenClaw Agent 接入
+
+项目提供可选的 stdio MCP Server 和通用 Skill。需要 `uv`、Git，以及已经安装并配置好的
+Hermes 或 OpenClaw 渠道 Gateway。执行：
+
+```bash
+./scripts/install-agent.sh --agent auto
+```
+
+没有本地 checkout 时可直接使用：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/JungleLiu-LHJ/vocab-coach/main/scripts/install-agent.sh | sh -s -- --agent auto
+```
+
+也可以使用 `--agent hermes`、`--agent openclaw` 或 `--agent both`。安装器只配置本地
+Vocab Coach MCP 和 Skill，不读取渠道 token；Telegram、WhatsApp、微信、飞书的连接和定时
+投递仍由 Agent Gateway 管理。重启 Agent 后会发现 `vocab_coach_*` 工具。
+
+MCP 返回中立的按钮/卡片 action 以及 `fallback_text`。支持原生交互的渠道使用按钮或卡片，
+纯文字渠道使用编号回复。复习卡的评分前答案隐藏规则由 Vocab Coach 服务端执行。
+
 服务运行时，在终端按 `Ctrl+C` 即可停止。接口文档位于 [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)。
