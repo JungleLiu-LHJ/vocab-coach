@@ -123,7 +123,7 @@ token、联系人、群组或定时任务。
 需要 Python 3.12–3.14 和 [uv](https://docs.astral.sh/uv/)：
 
 ```bash
-git clone https://github.com/JungleLiu-LHJ/vocab-coach.git
+git clone --depth 1 --single-branch --branch main https://github.com/JungleLiu-LHJ/vocab-coach.git
 cd vocab-coach
 uv sync
 cp .env.example .env

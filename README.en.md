@@ -44,7 +44,7 @@ Vocab Coach uses the FSRS 6 implementation from the Python `fsrs` package. On fi
 Requirements: Python 3.12–3.14 and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-git clone https://github.com/JungleLiu-LHJ/vocab-coach.git
+git clone --depth 1 --single-branch --branch main https://github.com/JungleLiu-LHJ/vocab-coach.git
 cd vocab-coach
 uv sync
 cp .env.example .env
